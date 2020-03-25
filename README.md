@@ -11,3 +11,7 @@ Clone the code, then call the following in terminal at the project's top-level d
 `python app.py`
 
 Or check out the Releases page for an executable.
+
+
+### Screenshot
+<img src='https://user-images.githubusercontent.com/4778878/77588902-bf417f80-6eb8-11ea-8123-bf6e3710fd91.png' align='center' width='400' alt="DVH Analytics screenshot">

@@ -24,7 +24,7 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='DICOM Editor',
+          name='DVHA  DICOM Editor',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -33,7 +33,7 @@ exe = EXE(pyz,
           runtime_tmpdir=None,
           console=False)
 app = BUNDLE(exe,
-             name='DICOM Editor',
+             name='DVHA DICOM Editor',
              bundle_identifier=None,
              info_plist={'NSHighResolutionCapable': 'True'}
              )
