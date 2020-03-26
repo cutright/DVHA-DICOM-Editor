@@ -14,5 +14,7 @@ python app.py
 ```
 Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 
+NOTE: Currently (as of v.0.2), the app only supports DICOM Tags that are not part of a sequence.
+
 ### Screenshot
 <img src='https://user-images.githubusercontent.com/4778878/77604220-f7a88400-6edf-11ea-9dca-21492ca8cf73.png' align='center' width='400' alt="DVH Analytics screenshot">

@@ -173,6 +173,7 @@ class MainFrame(wx.Frame):
                 self.directory[dir_key] = new_dir
                 index -= 1
         self.input_obj[index].SetFocus()
+        self.update_save_dicom_enable()
 
     def get_files(self):
         dir_path = self.input['in_dir'].GetValue()
@@ -234,6 +235,7 @@ class MainFrame(wx.Frame):
             self.input['tag_group'].SetFocus()
         else:
             obj.SetFocus()
+        self.update_save_dicom_enable()
 
     def on_key_down_dir(self, evt):
         keycode = evt.GetKeyCode()
@@ -252,7 +254,9 @@ class MainFrame(wx.Frame):
             self.update_save_dicom_enable()
 
     def update_save_dicom_enable(self):
-        enable = isdir(self.input['in_dir'].GetValue()) and isdir(self.input['out_dir'].GetValue())
+        enable = isdir(self.input['in_dir'].GetValue()) and \
+                 isdir(self.input['out_dir'].GetValue()) and \
+                 self.data_table_has_data
         self.button['save_dicom'].Enable(enable)
 
     def on_enter_key_dir(self, obj):
@@ -313,7 +317,7 @@ class MainFrame(wx.Frame):
     def on_add(self, *evt):
         description = self.ds[self.file_paths[0]].get_tag_name(self.tag.tag)
         row = [str(self.tag), description, self.input['value'].GetValue(), self.input['value_type'].GetValue()]
-        if self.data_table.has_data and self.data_table.get_row(0)[0]:
+        if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
             columns = self.data_table.columns
@@ -327,12 +331,18 @@ class MainFrame(wx.Frame):
         self.input['tag_group'].SetFocus()
         self.update_description()
         self.update_save_template_enable()
+        self.update_save_dicom_enable()
+
+    @property
+    def data_table_has_data(self):
+        return self.data_table.has_data and self.data_table.get_row(0)[0] != ''
 
     def on_delete(self, *evt):
         for index in self.selected_indices[::-1]:
             self.data_table.delete_row(index)
         self.update_delete_enable()
         self.update_save_template_enable()
+        self.update_save_dicom_enable()
 
     def on_select_all(self, *evt):
         self.data_table.apply_selection_to_all(True)
@@ -357,12 +367,13 @@ class MainFrame(wx.Frame):
                 self.data_table.set_data(data, columns)
                 self.data_table.set_column_widths(auto=True)
                 self.update_save_template_enable()
+                self.update_save_dicom_enable()
 
     def update_delete_enable(self, *evt):
         self.button['delete'].Enable(len(self.data_table.selected_row_data))
 
     def update_save_template_enable(self):
-        self.button['save_template'].Enable(self.data_table.has_data)
+        self.button['save_template'].Enable(self.data_table_has_data)
 
     @property
     def selected_indices(self):
