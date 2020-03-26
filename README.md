@@ -4,7 +4,9 @@ Simple DICOM tag editor built with wxPython and PyDICOM
 I quickly built this app for a clinical need. I know there are plenty of options out there, but this application 
 does not require admin rights - and if using a provided executable, no installation needed.
 
-I will likely merge this code into [DVH Analytics](https://github.com/cutright/DVH-Analytics) so users can edit their DICOM files before importing into the database.
+I will likely merge this code into [DVH Analytics](https://github.com/cutright/DVH-Analytics) so users can edit their DICOM files before importing into the database.  
+<a href="https://lgtm.com/projects/g/cutright/DVH-Analytics/context:python">
+        <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality" /></a>
 
 ### Run
 Clone the code, then call the following in terminal at the project's top-level directory:  
