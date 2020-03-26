@@ -17,7 +17,7 @@ class MainFrame(wx.Frame):
         self.ds = {}
 
         # Create GUI widgets
-        keys =['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir']
+        keys =['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
         self.input = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in keys}
         self.input['selected_file'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
@@ -33,7 +33,7 @@ class MainFrame(wx.Frame):
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'selected_file',
-                'modality']
+                'modality', 'prepend_file_name']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
         self.file_paths = []
@@ -97,6 +97,7 @@ class MainFrame(wx.Frame):
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.VERTICAL)
         sizer_output_dir = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_output_dir_prepend = wx.BoxSizer(wx.HORIZONTAL)
         sizer_app_buttons = wx.BoxSizer(wx.HORIZONTAL)
 
         # Directory Browser
@@ -137,6 +138,9 @@ class MainFrame(wx.Frame):
         sizer_output_dir.Add(self.input['out_dir'], 1, wx.EXPAND | wx.ALL, 5)
         sizer_output_dir.Add(self.button['out_browse'], 0, wx.ALL, 5)
         sizer_output_dir_wrapper.Add(sizer_output_dir, 0, wx.ALL | wx.EXPAND, 5)
+        sizer_output_dir_prepend.Add(self.label['prepend_file_name'], 0, wx.LEFT, 5)
+        sizer_output_dir_prepend.Add(self.input['prepend_file_name'], 1, wx.EXPAND | wx.RIGHT, 105)
+        sizer_output_dir_wrapper.Add(sizer_output_dir_prepend, 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
         sizer_main.Add(sizer_output_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_app_buttons.Add(self.button['save_dicom'], 0, wx.ALL, 5)
@@ -209,7 +213,18 @@ class MainFrame(wx.Frame):
 
     def on_save_dicom(self, *evt):
         self.apply_edits()
+        if self.save_files(overwrite_check_only=True):
+            msg = "You will overwrite files with this action. Continue?"
+            caption = "Are you sure?"
+            flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
+            with wx.MessageDialog(self, msg, caption, flags) as dlg:
+                if dlg.ShowModal() != wx.ID_YES:
+                    return
         self.save_files()
+
+        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue():
+            self.get_files()
+            self.refresh_ds()
 
     def on_quit(self, *evt):
         self.Close()
@@ -258,6 +273,10 @@ class MainFrame(wx.Frame):
                  isdir(self.input['out_dir'].GetValue()) and \
                  self.data_table_has_data
         self.button['save_dicom'].Enable(enable)
+
+        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue() and \
+                not self.input['prepend_file_name'].GetValue():
+            self.input['prepend_file_name'].ChangeValue('copy_')
 
     def on_enter_key_dir(self, obj):
         new_dir = obj.GetValue()
@@ -396,15 +415,24 @@ class MainFrame(wx.Frame):
                 except Exception:
                     pass
 
-    def save_files(self):
+    def save_files(self, overwrite_check_only=False):
         output_dir = self.input['out_dir'].GetValue()
-        prepend = 'copy_' if output_dir == self.input['in_dir'].GetValue() else ''
+        prepend = self.input['prepend_file_name'].GetValue()
         for file_path, ds in self.ds.items():
-            file_name = basename(file_path)
-            if prepend:
-                file_name = prepend + file_name
+            file_name = prepend + basename(file_path)
             output_path = join(output_dir, file_name)
-            ds.save_as(output_path)
+            if overwrite_check_only:
+                if output_path in list(self.ds):
+                    return True
+            else:
+                try:
+                    ds.save_as(output_path)
+                except OSError as e:
+                    ErrorDialog(self, str(e), "Save Error")
+                    break
+
+        if overwrite_check_only:
+            return False
 
     def update_description(self):
         description = self.description if self.group and self.element else ''

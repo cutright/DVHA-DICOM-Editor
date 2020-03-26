@@ -2,6 +2,7 @@
 Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoenix) and [pydicom](https://github.com/pydicom/pydicom)  
 * No admin rights needed
 * Executables provided, which require no installation  
+* Create templates for routine tag editing
 
 
 <a href="https://lgtm.com/projects/g/cutright/DVHA-DICOM-Editor/context:python">
@@ -17,4 +18,4 @@ Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releas
 NOTE: Currently (as of v.0.2), the app only supports DICOM Tags that are not part of a sequence.
 
 ### Screenshot
-<img src='https://user-images.githubusercontent.com/4778878/77604220-f7a88400-6edf-11ea-9dca-21492ca8cf73.png' align='center' width='400' alt="DVH Analytics screenshot">
+<img src='https://user-images.githubusercontent.com/4778878/77683755-e0f94000-6f66-11ea-958c-a94c5c895266.png' align='center' width='400' alt="DVH Analytics screenshot">
