@@ -5,6 +5,9 @@ from dicomeditor.dicom_editor import DICOMEditor, Tag
 from dicomeditor.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items
 
 
+VERSION = 'v0.2'
+
+
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
@@ -15,6 +18,7 @@ class MainFrame(wx.Frame):
         # Create GUI widgets
         keys =['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir']
         self.input = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in keys}
+        self.input['initial_value_from'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input_obj = [self.input[key] for key in keys]
 
@@ -24,10 +28,11 @@ class MainFrame(wx.Frame):
         columns = ['Tag', 'Description', 'Value', 'Value Type']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
-        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[100, 200, 150, 100])
+        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[100, 200, -2, 100])
 
-        self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':')
-                      for key in ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description']}
+        keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'initial_value_from',
+                'modality']
+        self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
         self.file_paths = []
         self.update_files_found()
@@ -46,6 +51,8 @@ class MainFrame(wx.Frame):
         self.button['delete'].Disable()
         self.button['save'].Disable()
 
+        self.input['initial_value_from'].Disable()
+
         self.input['value_type'].SetItems(['str', 'float', 'int'])
         self.input['value_type'].SetValue('str')
     
@@ -53,8 +60,10 @@ class MainFrame(wx.Frame):
         for key, button in self.button.items():
             self.Bind(wx.EVT_BUTTON, getattr(self, "on_" + key), id=button.GetId())
 
+        self.Bind(wx.EVT_COMBOBOX, self.on_file_select, id=self.input['initial_value_from'].GetId())
+
         for widget in self.input_obj:
-            widget.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
+            widget.Bind(wx.EVT_KEY_UP, self.on_key_up)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.update_delete_enable, id=self.list_ctrl.GetId())
 
@@ -64,6 +73,7 @@ class MainFrame(wx.Frame):
         sizer_main = wx.BoxSizer(wx.VERTICAL)
         sizer_input_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Directory"), wx.VERTICAL)
         sizer_input_dir = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_input_file = wx.BoxSizer(wx.VERTICAL)
         sizer_edit_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Tag Editor"), wx.VERTICAL)
         sizer_edit = wx.BoxSizer(wx.HORIZONTAL)
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
@@ -77,11 +87,15 @@ class MainFrame(wx.Frame):
         sizer_input_dir.Add(self.input['in_dir'], 1, wx.EXPAND | wx.ALL, 5)
         sizer_input_dir.Add(self.button['in_browse'], 0, wx.ALL, 5)
         sizer_input_dir_wrapper.Add(sizer_input_dir, 0, wx.ALL | wx.EXPAND, 5)
-        sizer_input_dir_wrapper.Add(self.label['files_found'], 0, wx.ALL, 10)
+        sizer_input_file.Add(self.label['files_found'], 0, wx.ALL, 5)
+        sizer_input_file.Add(self.label['initial_value_from'], 0, wx.LEFT | wx.TOP, 5)
+        sizer_input_file.Add(self.input['initial_value_from'], 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
+        sizer_input_file.Add(self.label['modality'], 0, wx.LEFT, 5)
+        sizer_input_dir_wrapper.Add(sizer_input_file, 0, wx.ALL | wx.EXPAND, 5)
         sizer_main.Add(sizer_input_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
         # Input Widgets
-        for key in ['tag_group', 'tag_element', 'value', 'value_type']:
+        for key in ['tag_group', 'tag_element', 'value_type']:
             sizer_edit_widgets[key].Add(self.label[key], 0, 0, 0)
             sizer_edit_widgets[key].Add(self.input[key], 0, wx.EXPAND, 0)
             sizer_edit.Add(sizer_edit_widgets[key], 0, wx.EXPAND | wx.ALL, 5)
@@ -90,7 +104,10 @@ class MainFrame(wx.Frame):
         sizer_edit.Add(sizer_edit_widgets['add'], 0, wx.EXPAND | wx.ALL, 5)
         sizer_edit_wrapper.Add(sizer_edit, 0, wx.EXPAND | wx.ALL, 5)
 
-        sizer_edit_wrapper.Add(self.label['description'], 0, wx.LEFT | wx.BOTTOM, 10)
+        sizer_edit_wrapper.Add(self.label['value'], 0, wx.LEFT, 10)
+        sizer_edit_wrapper.Add(self.input['value'], 0, wx.EXPAND | wx.LEFT, 10)
+
+        sizer_edit_wrapper.Add(self.label['description'], 0, wx.TOP | wx.LEFT | wx.BOTTOM, 10)
 
         sizer_edit_wrapper.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 10)
 
@@ -116,8 +133,9 @@ class MainFrame(wx.Frame):
         self.Fit()
         self.Center()
 
-    def on_key_down(self, event):
+    def on_key_up(self, event):
         self.update_description()
+        self.update_init_value()
 
         keycode = event.GetKeyCode()
         if keycode == wx.WXK_TAB:
@@ -130,7 +148,7 @@ class MainFrame(wx.Frame):
     def get_files(self):
         dir_path = self.input['in_dir'].GetValue()
         if isdir(dir_path):
-            self.file_paths = get_file_paths(dir_path)
+            self.file_paths = sorted(get_file_paths(dir_path))
         else:
             self.file_paths = []
         self.update_files_found()
@@ -185,6 +203,32 @@ class MainFrame(wx.Frame):
             except Exception:
                 pass
         self.file_paths = new_file_paths
+        self.update_combo_box_files()
+        self.update_init_value()
+
+    def update_combo_box_files(self):
+        choices = [basename(f) for f in self.file_paths]
+        self.input['initial_value_from'].Enable()
+        self.input['initial_value_from'].SetItems(choices)
+        self.input['initial_value_from'].SetValue(choices[0])
+
+    def on_file_select(self, *evt):
+        self.update_init_value()
+
+    def update_init_value(self):
+        index = self.input['initial_value_from'].GetSelection()
+        if self.group and self.element:
+            try:
+                value = self.ds[self.file_paths[index]].get_tag_value(self.tag.tag)
+                self.input['value'].SetValue(value)
+            except Exception:
+                self.input['value'].SetValue('')
+        self.update_modality(index)
+
+    def update_modality(self, index=None):
+        if index is None:
+            index = self.input['initial_value_from'].GetSelection()
+        self.label['modality'].SetLabel('Modality: ' + self.ds[self.file_paths[index]].modality)
 
     def on_out_browse(self, *evt):
         starting_dir = self.input['out_dir'].GetValue()
@@ -289,7 +333,7 @@ class MainApp(wx.App):
     def OnInit(self):
 
         self.SetAppName('DVHA DICOM Editor')
-        self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor v0.1")
+        self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor %s" % VERSION)
         self.SetTopWindow(self.frame)
         self.frame.Show()
         return True

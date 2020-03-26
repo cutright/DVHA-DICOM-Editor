@@ -23,6 +23,13 @@ class DICOMEditor:
     def save_as(self, file_path):
         self.dcm.save_as(file_path)
 
+    @property
+    def modality(self):
+        try:
+            return self.dcm.Modality
+        except Exception:
+            return 'Not Found'
+
 
 class Tag:
     def __init__(self, group, element):
