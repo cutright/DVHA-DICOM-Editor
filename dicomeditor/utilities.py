@@ -131,3 +131,18 @@ def load_csv_from_file(abs_file_path):
                     data[columns[i]].append(value.strip().replace(';', ','))
 
     return columns, data
+
+
+class ErrorDialog:
+    def __init__(self, parent, message, caption, flags=wx.ICON_ERROR | wx.OK | wx.OK_DEFAULT):
+        """
+        This class allows error messages to be called with a one-liner else-where
+        :param parent: wx parent object
+        :param message: error message
+        :param caption: error title
+        :param flags: flags for wx.MessageDialog
+        """
+        self.dlg = wx.MessageDialog(parent, message, caption, flags)
+        self.dlg.Center()
+        self.dlg.ShowModal()
+        self.dlg.Destroy()

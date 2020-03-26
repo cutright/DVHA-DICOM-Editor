@@ -3,7 +3,7 @@ from os.path import isdir, basename, join
 from dicomeditor.data_table import DataTable
 from dicomeditor.dicom_editor import DICOMEditor, Tag
 from dicomeditor.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    save_csv_to_file, load_csv_from_file
+    save_csv_to_file, load_csv_from_file, ErrorDialog
 
 
 VERSION = 'v0.2'
@@ -19,7 +19,7 @@ class MainFrame(wx.Frame):
         # Create GUI widgets
         keys =['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir']
         self.input = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in keys}
-        self.input['initial_value_from'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        self.input['selected_file'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input_obj = [self.input[key] for key in keys]
 
@@ -32,7 +32,7 @@ class MainFrame(wx.Frame):
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
 
-        keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'initial_value_from',
+        keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'selected_file',
                 'modality']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
@@ -55,7 +55,11 @@ class MainFrame(wx.Frame):
         for key in ['add', 'delete', 'save_dicom', 'save_template']:
             self.button[key].Disable()
 
-        self.input['initial_value_from'].Disable()
+        self.input['selected_file'].Disable()
+        msg = "The \"Value\" in the tag editor below will be prepopulated with the value found for the " \
+              "specified tag in this file."
+        self.input['selected_file'].SetToolTip(msg)
+        self.label['selected_file'].SetToolTip(msg)
 
         self.input['value_type'].SetItems(['str', 'float', 'int'])
         self.input['value_type'].SetValue('str')
@@ -64,10 +68,16 @@ class MainFrame(wx.Frame):
         for key, button in self.button.items():
             self.Bind(wx.EVT_BUTTON, getattr(self, "on_" + key), id=button.GetId())
 
-        self.Bind(wx.EVT_COMBOBOX, self.on_file_select, id=self.input['initial_value_from'].GetId())
+        self.Bind(wx.EVT_COMBOBOX, self.on_file_select, id=self.input['selected_file'].GetId())
 
         for widget in self.input_obj:
             widget.Bind(wx.EVT_KEY_UP, self.on_key_up)
+
+        self.input['in_dir'].Bind(wx.EVT_KEY_DOWN, self.on_key_down_dir)
+        self.input['out_dir'].Bind(wx.EVT_KEY_DOWN, self.on_key_down_dir)
+
+        self.input['in_dir'].Bind(wx.EVT_TEXT, self.update_dir_obj_text_color)
+        self.input['out_dir'].Bind(wx.EVT_TEXT, self.update_dir_obj_text_color)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.update_delete_enable, id=self.list_ctrl.GetId())
 
@@ -92,8 +102,8 @@ class MainFrame(wx.Frame):
         sizer_input_dir.Add(self.button['in_browse'], 0, wx.ALL, 5)
         sizer_input_dir_wrapper.Add(sizer_input_dir, 0, wx.ALL | wx.EXPAND, 5)
         sizer_input_file.Add(self.label['files_found'], 0, wx.ALL, 5)
-        sizer_input_file.Add(self.label['initial_value_from'], 0, wx.LEFT | wx.TOP, 5)
-        sizer_input_file.Add(self.input['initial_value_from'], 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
+        sizer_input_file.Add(self.label['selected_file'], 0, wx.LEFT | wx.TOP, 5)
+        sizer_input_file.Add(self.input['selected_file'], 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
         sizer_input_file.Add(self.label['modality'], 0, wx.LEFT, 5)
         sizer_input_dir_wrapper.Add(sizer_input_file, 0, wx.ALL | wx.EXPAND, 5)
         sizer_main.Add(sizer_input_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
@@ -137,17 +147,27 @@ class MainFrame(wx.Frame):
         self.Fit()
         self.Center()
 
-    def on_key_up(self, event):
+    def on_key_up(self, evt):
         self.update_description()
         self.update_init_value()
 
-        keycode = event.GetKeyCode()
+        keycode = evt.GetKeyCode()
         if keycode == wx.WXK_TAB:
-            widget = event.GetEventObject()
-            index = self.input_obj.index(widget)
-            index = index + 1 if index + 1 < len(self.input_obj) else 0
-            self.input_obj[index].SetFocus()
-        event.Skip()
+            self.on_tab_key(evt)
+        evt.Skip()
+
+    def on_tab_key(self, evt):
+        obj = evt.GetEventObject()
+        index = self.input_obj.index(obj)
+        index = index + 1 if index + 1 < len(self.input_obj) else 0
+        if obj in {self.input['in_dir'], self.input['out_dir']}:
+            if isdir(obj.GetValue()):
+                if obj == self.input['in_dir']:
+                    self.refresh_ds()
+            else:
+                ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+                index -= 1
+        self.input_obj[index].SetFocus()
 
     def get_files(self):
         dir_path = self.input['in_dir'].GetValue()
@@ -196,8 +216,37 @@ class MainFrame(wx.Frame):
         dlg = wx.DirDialog(self, "Select directory", starting_dir, wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
         if dlg.ShowModal() == wx.ID_OK:
             self.input['in_dir'].SetValue(dlg.GetPath())
-            self.get_files()
+            self.refresh_ds()
 
+    def on_key_down_dir(self, evt):
+        keycode = evt.GetKeyCode()
+        obj = evt.GetEventObject()
+        if keycode == wx.WXK_RETURN:
+            self.on_enter_key_dir(obj)
+        else:
+            evt.Skip()
+
+    def update_dir_obj_text_color(self, evt):
+        obj = evt.GetEventObject()
+        orange = (255, 153, 51, 255)
+        color = wx.WHITE if isdir(obj.GetValue()) else orange  # else orange
+        if color != obj.GetBackgroundColour():
+            obj.SetBackgroundColour(color)
+            self.update_save_dicom_enable()
+
+    def update_save_dicom_enable(self):
+        enable = isdir(self.input['in_dir'].GetValue()) and isdir(self.input['out_dir'].GetValue())
+        self.button['save_dicom'].Enable(enable)
+
+    def on_enter_key_dir(self, obj):
+        if isdir(obj.GetValue()):
+            if obj == self.input['in_dir']:
+                self.refresh_ds()
+        else:
+            ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+
+    def refresh_ds(self):
+        self.get_files()
         self.ds = {}
         new_file_paths = []
         for f in self.file_paths:
@@ -212,16 +261,16 @@ class MainFrame(wx.Frame):
 
     def update_combo_box_files(self):
         choices = [basename(f) for f in self.file_paths]
-        self.input['initial_value_from'].Enable()
-        self.input['initial_value_from'].SetItems(choices)
+        self.input['selected_file'].Enable()
+        self.input['selected_file'].SetItems(choices)
         if choices:
-            self.input['initial_value_from'].SetValue(choices[0])
+            self.input['selected_file'].SetValue(choices[0])
 
     def on_file_select(self, *evt):
         self.update_init_value()
 
     def update_init_value(self):
-        index = self.input['initial_value_from'].GetSelection()
+        index = self.input['selected_file'].GetSelection()
         if self.group and self.element:
             try:
                 value = self.ds[self.file_paths[index]].get_tag_value(self.tag.tag)
@@ -232,7 +281,7 @@ class MainFrame(wx.Frame):
 
     def update_modality(self, index=None):
         if index is None:
-            index = self.input['initial_value_from'].GetSelection()
+            index = self.input['selected_file'].GetSelection()
         modality = self.ds[self.file_paths[index]].modality if self.file_paths else ''
         self.label['modality'].SetLabel('Modality: ' + modality)
 
@@ -244,7 +293,7 @@ class MainFrame(wx.Frame):
         dlg = wx.DirDialog(self, "Select directory", starting_dir, wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
         if dlg.ShowModal() == wx.ID_OK:
             self.input['out_dir'].SetValue(dlg.GetPath())
-            self.button['save'].Enable()
+            self.update_save_dicom_enable()
 
     def on_add(self, *evt):
         description = self.ds[self.file_paths[0]].get_tag_name(self.tag.tag)
