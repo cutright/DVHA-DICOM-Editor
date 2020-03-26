@@ -319,6 +319,7 @@ class MainFrame(wx.Frame):
             columns = self.data_table.columns
             data = {columns[i]: [value] for i, value in enumerate(row)}
             self.data_table.set_data(data, columns)
+        self.data_table.set_column_widths(auto=True)
 
         for key in ['tag_group', 'tag_element', 'value']:
             self.input[key].SetValue('')
@@ -354,6 +355,7 @@ class MainFrame(wx.Frame):
             columns, data = load_csv_from_file(dlg.GetPath())
             if columns == self.data_table.columns:
                 self.data_table.set_data(data, columns)
+                self.data_table.set_column_widths(auto=True)
                 self.update_save_template_enable()
 
     def update_delete_enable(self, *evt):
