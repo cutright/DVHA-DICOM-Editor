@@ -4,7 +4,7 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
 * Executables provided, which require no installation  
 
 
-<a href="https://lgtm.com/projects/g/cutright/DVH-Analytics/context:python">
+<a href="https://lgtm.com/projects/g/cutright/DVHA-DICOM-Editor/context:python">
         <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality" /></a>
 
 ### Run
