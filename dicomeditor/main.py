@@ -2,7 +2,8 @@ import wx
 from os.path import isdir, basename, join
 from dicomeditor.data_table import DataTable
 from dicomeditor.dicom_editor import DICOMEditor, Tag
-from dicomeditor.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items
+from dicomeditor.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
+    save_csv_to_file, load_csv_from_file
 
 
 VERSION = 'v0.2'
@@ -22,13 +23,14 @@ class MainFrame(wx.Frame):
         self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input_obj = [self.input[key] for key in keys]
 
-        keys = ['save', 'quit', 'in_browse', 'out_browse', 'add', 'delete', 'select_all', 'deselect_all']
+        keys = ['save_dicom', 'quit', 'in_browse', 'out_browse', 'add', 'delete', 'select_all', 'deselect_all',
+                'save_template', 'load_template']
         self.button = {key: wx.Button(self, wx.ID_ANY, key.replace('_', ' ').title()) for key in keys}
 
         columns = ['Tag', 'Description', 'Value', 'Value Type']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
-        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[100, 200, -2, 100])
+        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'initial_value_from',
                 'modality']
@@ -46,10 +48,12 @@ class MainFrame(wx.Frame):
 
         self.button['in_browse'].SetLabel(u"Browse…")
         self.button['out_browse'].SetLabel(u"Browse…")
+        self.button['save_dicom'].SetLabel('Save DICOM')
+        self.button['save_template'].SetLabel('Save')
+        self.button['load_template'].SetLabel('Load')
 
-        self.button['add'].Disable()
-        self.button['delete'].Disable()
-        self.button['save'].Disable()
+        for key in ['add', 'delete', 'save_dicom', 'save_template']:
+            self.button[key].Disable()
 
         self.input['initial_value_from'].Disable()
 
@@ -111,7 +115,7 @@ class MainFrame(wx.Frame):
 
         sizer_edit_wrapper.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 10)
 
-        for key in ['delete', 'select_all', 'deselect_all']:
+        for key in ['delete', 'select_all', 'deselect_all', 'save_template', 'load_template']:
             sizer_edit_buttons.Add(self.button[key], 0, wx.EXPAND | wx.RIGHT | wx.LEFT, 5)
         sizer_edit_wrapper.Add(sizer_edit_buttons, 0, wx.ALIGN_CENTER | wx.ALL, 5)
 
@@ -123,7 +127,7 @@ class MainFrame(wx.Frame):
         sizer_output_dir_wrapper.Add(sizer_output_dir, 0, wx.ALL | wx.EXPAND, 5)
         sizer_main.Add(sizer_output_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
-        sizer_app_buttons.Add(self.button['save'], 0, wx.ALL, 5)
+        sizer_app_buttons.Add(self.button['save_dicom'], 0, wx.ALL, 5)
         sizer_app_buttons.Add(self.button['quit'], 0, wx.ALL, 5)
         sizer_main.Add(sizer_app_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
 
@@ -177,7 +181,7 @@ class MainFrame(wx.Frame):
         type_ = get_type(self.input['value_type'].GetValue())
         return type_(value)
 
-    def on_save(self, *evt):
+    def on_save_dicom(self, *evt):
         self.apply_edits()
         self.save_files()
 
@@ -210,7 +214,8 @@ class MainFrame(wx.Frame):
         choices = [basename(f) for f in self.file_paths]
         self.input['initial_value_from'].Enable()
         self.input['initial_value_from'].SetItems(choices)
-        self.input['initial_value_from'].SetValue(choices[0])
+        if choices:
+            self.input['initial_value_from'].SetValue(choices[0])
 
     def on_file_select(self, *evt):
         self.update_init_value()
@@ -228,7 +233,8 @@ class MainFrame(wx.Frame):
     def update_modality(self, index=None):
         if index is None:
             index = self.input['initial_value_from'].GetSelection()
-        self.label['modality'].SetLabel('Modality: ' + self.ds[self.file_paths[index]].modality)
+        modality = self.ds[self.file_paths[index]].modality if self.file_paths else ''
+        self.label['modality'].SetLabel('Modality: ' + modality)
 
     def on_out_browse(self, *evt):
         starting_dir = self.input['out_dir'].GetValue()
@@ -255,11 +261,13 @@ class MainFrame(wx.Frame):
 
         self.input['tag_group'].SetFocus()
         self.update_description()
+        self.update_save_template_enable()
 
     def on_delete(self, *evt):
         for index in self.selected_indices[::-1]:
             self.data_table.delete_row(index)
         self.update_delete_enable()
+        self.update_save_template_enable()
 
     def on_select_all(self, *evt):
         self.data_table.apply_selection_to_all(True)
@@ -269,8 +277,26 @@ class MainFrame(wx.Frame):
         self.data_table.apply_selection_to_all(False)
         self.button['delete'].Disable()
 
+    def on_save_template(self, *evt):
+        dlg = wx.FileDialog(self, "Save template", "", wildcard='*.csv',
+                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        if dlg.ShowModal() == wx.ID_OK:
+            save_csv_to_file(self.data_table.get_csv(), dlg.GetPath())
+        dlg.Destroy()
+
+    def on_load_template(self, *evt):
+        dlg = wx.FileDialog(self, "Load template", "", wildcard='*.csv', style=wx.FD_OPEN)
+        if dlg.ShowModal() == wx.ID_OK:
+            columns, data = load_csv_from_file(dlg.GetPath())
+            if columns == self.data_table.columns:
+                self.data_table.set_data(data, columns)
+                self.update_save_template_enable()
+
     def update_delete_enable(self, *evt):
         self.button['delete'].Enable(len(self.data_table.selected_row_data))
+
+    def update_save_template_enable(self):
+        self.button['save_template'].Enable(self.data_table.has_data)
 
     @property
     def selected_indices(self):

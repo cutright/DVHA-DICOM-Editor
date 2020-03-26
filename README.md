@@ -8,10 +8,11 @@ I will likely merge this code into [DVH Analytics](https://github.com/cutright/D
 
 ### Run
 Clone the code, then call the following in terminal at the project's top-level directory:  
-`python app.py`
-
-Or check out the Releases page for an executable.
+```
+python app.py
+```
+Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 
 
 ### Screenshot
-<img src='https://user-images.githubusercontent.com/4778878/77588902-bf417f80-6eb8-11ea-8123-bf6e3710fd91.png' align='center' width='400' alt="DVH Analytics screenshot">
+<img src='https://user-images.githubusercontent.com/4778878/77604220-f7a88400-6edf-11ea-9dca-21492ca8cf73.png' align='center' width='400' alt="DVH Analytics screenshot">

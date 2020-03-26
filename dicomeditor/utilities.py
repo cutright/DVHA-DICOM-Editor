@@ -1,6 +1,7 @@
 import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
+import pickle
 
 
 def get_file_paths(start_path, search_sub_folders=False, extension=None):
@@ -106,3 +107,27 @@ def get_type(type_str):
     if type_str.lower() in list(type_map):
         return type_map[type_str.lower()]
     return str
+
+
+def save_csv_to_file(csv_data, abs_file_path):
+    """
+    Save a python object acceptable for pickle to the provided file path
+    """
+    with open(abs_file_path, 'w') as outfile:
+        outfile.write(csv_data)
+
+
+def load_csv_from_file(abs_file_path):
+    """
+    Load a pickled object from the provided absolute file path
+    """
+    columns, data = None, None
+    if isfile(abs_file_path):
+        with open(abs_file_path, 'r') as infile:
+            columns = [c.strip() for c in infile.readline().split(',')]
+            data = {c: [] for c in columns}
+            for row in infile:
+                for i, value in enumerate(row.split(',')):
+                    data[columns[i]].append(value.strip().replace(';', ','))
+
+    return columns, data
