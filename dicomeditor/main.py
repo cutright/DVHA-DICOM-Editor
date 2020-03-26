@@ -38,6 +38,8 @@ class MainFrame(wx.Frame):
 
         self.file_paths = []
         self.update_files_found()
+
+        self.directory = {'in': '', 'out': ''}
         
         self.__set_properties()
         self.__do_bind()
@@ -161,11 +163,14 @@ class MainFrame(wx.Frame):
         index = self.input_obj.index(obj)
         index = index + 1 if index + 1 < len(self.input_obj) else 0
         if obj in {self.input['in_dir'], self.input['out_dir']}:
-            if isdir(obj.GetValue()):
-                if obj == self.input['in_dir']:
+            new_dir = obj.GetValue()
+            if isdir(new_dir):
+                if obj == self.input['in_dir'] and new_dir != self.directory['in']:
                     self.refresh_ds()
             else:
                 ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+                dir_key = 'in' if obj == self.input['in_dir'] else 'out'
+                self.directory[dir_key] = new_dir
                 index -= 1
         self.input_obj[index].SetFocus()
 
@@ -209,14 +214,26 @@ class MainFrame(wx.Frame):
         self.Close()
 
     def on_in_browse(self, *evt):
-        starting_dir = self.input['in_dir'].GetValue()
+        self.on_browse(self.input['in_dir'])
+
+    def on_browse(self, obj):
+        starting_dir = obj.GetValue()
         if not isdir(starting_dir):
             starting_dir = ""
 
         dlg = wx.DirDialog(self, "Select directory", starting_dir, wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
         if dlg.ShowModal() == wx.ID_OK:
-            self.input['in_dir'].SetValue(dlg.GetPath())
-            self.refresh_ds()
+            obj.SetBackgroundColour(wx.WHITE)
+            new_dir = dlg.GetPath()
+            obj.ChangeValue(new_dir)
+            if obj == self.input['in_dir']:
+                self.refresh_ds()
+                self.directory['in'] = new_dir
+            else:
+                self.directory['out'] = new_dir
+            self.input['tag_group'].SetFocus()
+        else:
+            obj.SetFocus()
 
     def on_key_down_dir(self, evt):
         keycode = evt.GetKeyCode()
@@ -239,11 +256,16 @@ class MainFrame(wx.Frame):
         self.button['save_dicom'].Enable(enable)
 
     def on_enter_key_dir(self, obj):
-        if isdir(obj.GetValue()):
-            if obj == self.input['in_dir']:
-                self.refresh_ds()
-        else:
-            ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+        new_dir = obj.GetValue()
+        key = 'in' if obj == self.input['in_dir'] else 'out'
+        if new_dir == self.directory[key]:
+            if isdir(obj.GetValue()):
+                if obj == self.input['in_dir']:
+                    self.refresh_ds()
+            else:
+                ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+                dir_key = 'in' if obj == self.input['in_dir'] else 'out'
+                self.directory[dir_key] = new_dir
 
     def refresh_ds(self):
         self.get_files()
@@ -286,14 +308,7 @@ class MainFrame(wx.Frame):
         self.label['modality'].SetLabel('Modality: ' + modality)
 
     def on_out_browse(self, *evt):
-        starting_dir = self.input['out_dir'].GetValue()
-        if not isdir(starting_dir):
-            starting_dir = ""
-
-        dlg = wx.DirDialog(self, "Select directory", starting_dir, wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
-        if dlg.ShowModal() == wx.ID_OK:
-            self.input['out_dir'].SetValue(dlg.GetPath())
-            self.update_save_dicom_enable()
+        self.on_browse(self.input['out_dir'])
 
     def on_add(self, *evt):
         description = self.ds[self.file_paths[0]].get_tag_name(self.tag.tag)
