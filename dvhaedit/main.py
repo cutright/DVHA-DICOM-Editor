@@ -12,17 +12,18 @@ The main file for DVHA DICOM Editor
 
 
 import wx
-from os.path import isdir, basename, join
+from os.path import isdir, basename, join, dirname
 from dvhaedit.data_table import DataTable
 from dvhaedit.dicom_editor import DICOMEditor, Tag
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    save_csv_to_file, load_csv_from_file, ErrorDialog
+    save_csv_to_file, load_csv_from_file, ErrorDialog, ViewErrorLog, AskYesNo
 
 
-VERSION = '0.2'
+VERSION = '0.3dev1'
 
 
 class MainFrame(wx.Frame):
+    """The main frame called in MainApp"""
     def __init__(self, *args, **kwds):
         kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
@@ -34,7 +35,7 @@ class MainFrame(wx.Frame):
         self.input = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in keys}
         self.input['selected_file'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
-        self.input_obj = [self.input[key] for key in keys]
+        self.input_text_obj = [self.input[key] for key in keys]  # use for text event binding and focusing
 
         keys = ['save_dicom', 'quit', 'in_browse', 'out_browse', 'add', 'delete', 'select_all', 'deselect_all',
                 'save_template', 'load_template']
@@ -59,6 +60,7 @@ class MainFrame(wx.Frame):
         self.__do_layout()
     
     def __set_properties(self):
+        """Set initial properties of widgets"""
         set_msw_background_color(self)
 
         self.button['in_browse'].SetLabel(u"Browse…")
@@ -80,23 +82,25 @@ class MainFrame(wx.Frame):
         self.input['value_type'].SetValue('str')
     
     def __do_bind(self):
+        """Bind user events to widgets with actions"""
+
+        # This requires that there is a function on_<button-key> for every button, simplifies bind
         for key, button in self.button.items():
             self.Bind(wx.EVT_BUTTON, getattr(self, "on_" + key), id=button.GetId())
 
         self.Bind(wx.EVT_COMBOBOX, self.on_file_select, id=self.input['selected_file'].GetId())
 
-        for widget in self.input_obj:
+        for widget in self.input_text_obj:
             widget.Bind(wx.EVT_KEY_UP, self.on_key_up)
 
-        self.input['in_dir'].Bind(wx.EVT_KEY_DOWN, self.on_key_down_dir)
-        self.input['out_dir'].Bind(wx.EVT_KEY_DOWN, self.on_key_down_dir)
-
-        self.input['in_dir'].Bind(wx.EVT_TEXT, self.update_dir_obj_text_color)
-        self.input['out_dir'].Bind(wx.EVT_TEXT, self.update_dir_obj_text_color)
+        for key in ['in_dir', 'out_dir']:
+            self.input[key].Bind(wx.EVT_KEY_DOWN, self.on_key_down_dir)
+            self.input[key].Bind(wx.EVT_TEXT, self.update_dir_obj_text_color)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.update_delete_enable, id=self.list_ctrl.GetId())
 
     def __do_layout(self):
+        """Create GUI layout"""
         # Create GUI sizers
         sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
         sizer_main = wx.BoxSizer(wx.VERTICAL)
@@ -136,11 +140,9 @@ class MainFrame(wx.Frame):
 
         sizer_edit_wrapper.Add(self.label['value'], 0, wx.LEFT, 10)
         sizer_edit_wrapper.Add(self.input['value'], 0, wx.EXPAND | wx.LEFT, 10)
-
         sizer_edit_wrapper.Add(self.label['description'], 0, wx.TOP | wx.LEFT | wx.BOTTOM, 10)
 
         sizer_edit_wrapper.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 10)
-
         for key in ['delete', 'select_all', 'deselect_all', 'save_template', 'load_template']:
             sizer_edit_buttons.Add(self.button[key], 0, wx.EXPAND | wx.RIGHT | wx.LEFT, 5)
         sizer_edit_wrapper.Add(sizer_edit_buttons, 0, wx.ALIGN_CENTER | wx.ALL, 5)
@@ -166,56 +168,26 @@ class MainFrame(wx.Frame):
         self.Fit()
         self.Center()
 
-    def on_key_up(self, evt):
-        keycode = evt.GetKeyCode()
-        if keycode == wx.WXK_TAB:
-            self.on_tab_key(evt)
-        evt.Skip()
-
-    def on_tab_key(self, evt):
-        obj = evt.GetEventObject()
-        index = self.input_obj.index(obj)
-        index = index + 1 if index + 1 < len(self.input_obj) else 0
-        if obj in {self.input['in_dir'], self.input['out_dir']}:
-            new_dir = obj.GetValue()
-            if isdir(new_dir):
-                if obj == self.input['in_dir'] and new_dir != self.directory['in']:
-                    self.refresh_ds()
-            else:
-                ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
-                dir_key = 'in' if obj == self.input['in_dir'] else 'out'
-                self.directory[dir_key] = new_dir
-                index -= 1
-        self.input_obj[index].SetFocus()
-        self.update_save_dicom_enable()
-        self.update_description()
-        if obj == self.input['in_dir']:
-            self.update_init_value()
-
-    def get_files(self):
-        dir_path = self.input['in_dir'].GetValue()
-        if isdir(dir_path):
-            self.file_paths = sorted(get_file_paths(dir_path))
-        else:
-            self.file_paths = []
-        self.update_files_found()
-
-    def update_files_found(self):
-        found = len(self.file_paths)
-        label = "Files Found: %s" % found
-        self.label['files_found'].SetLabel(label)
-        self.button['add'].Enable(found > 0)
-
+    #################################################################################
+    # Basic properties/getters
+    #################################################################################
     @property
     def group(self):
+        """Group of the DICOM tag"""
         return self.input['tag_group'].GetValue().replace('(', '').replace(')', '').strip()
 
     @property
     def element(self):
+        """Element of the DICOM tag"""
         return self.input['tag_element'].GetValue().replace('(', '').replace(')', '').strip()
 
     @property
     def tag(self):
+        """
+        Convert string input in GUI to a DICOM tag
+        :return: user provided tag
+        :rtype: Tag
+        """
         return Tag(self.group, self.element)
 
     @property
@@ -224,37 +196,48 @@ class MainFrame(wx.Frame):
         type_ = get_type(self.input['value_type'].GetValue())
         return type_(value)
 
-    def on_save_dicom(self, *evt):
-        self.apply_edits()
-        if self.save_files(overwrite_check_only=True):
-            msg = "You will overwrite files with this action. Continue?"
-            caption = "Are you sure?"
-            flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
-            with wx.MessageDialog(self, msg, caption, flags) as dlg:
-                if dlg.ShowModal() != wx.ID_YES:
-                    return
-        self.save_files()
+    @property
+    def description(self):
+        for file_path in self.file_paths:
+            try:
+                return self.ds[file_path].get_tag_name(self.tag.tag)
+            except Exception:
+                pass
+        return 'Not Found'
 
-        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue():
-            self.get_files()
-            self.refresh_ds()
+    @property
+    def selected_indices(self):
+        return get_selected_listctrl_items(self.list_ctrl)
 
-    def on_quit(self, *evt):
-        self.Close()
+    @property
+    def data_table_has_data(self):
+        return self.data_table.has_data and self.data_table.get_row(0)[0] != ''
 
+    #################################################################################
+    # Button Event tickers
+    #################################################################################
     def on_in_browse(self, *evt):
         self.on_browse(self.input['in_dir'])
 
+    def on_out_browse(self, *evt):
+        self.on_browse(self.input['out_dir'])
+
     def on_browse(self, obj):
+        """
+        Open a wx.DirDialog and select a new directory the provided obj
+        :param obj: either in_dir or out_dir TextCtrl objects
+        :type obj: wx.TextCtrl
+        """
         starting_dir = obj.GetValue()
         if not isdir(starting_dir):
             starting_dir = ""
 
         dlg = wx.DirDialog(self, "Select directory", starting_dir, wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
         if dlg.ShowModal() == wx.ID_OK:
-            obj.SetBackgroundColour(wx.WHITE)
             new_dir = dlg.GetPath()
-            obj.ChangeValue(new_dir)
+            dlg.Destroy()
+            obj.SetBackgroundColour(wx.WHITE)  # Reset if background was orange, DirDialog forces a valid directory
+            obj.ChangeValue(new_dir)  # Update TextCtrl without signaling a change event
             if obj == self.input['in_dir']:
                 self.refresh_ds()
                 self.directory['in'] = new_dir
@@ -265,91 +248,8 @@ class MainFrame(wx.Frame):
             obj.SetFocus()
         self.update_save_dicom_enable()
 
-    def on_key_down_dir(self, evt):
-        keycode = evt.GetKeyCode()
-        obj = evt.GetEventObject()
-        if keycode == wx.WXK_RETURN:
-            self.on_enter_key_dir(obj)
-            if obj == self.input['in_dir']:
-                self.update_description()
-                self.update_init_value()
-        else:
-            evt.Skip()
-
-    def update_dir_obj_text_color(self, evt):
-        obj = evt.GetEventObject()
-        orange = (255, 153, 51, 255)
-        color = wx.WHITE if isdir(obj.GetValue()) else orange  # else orange
-        if color != obj.GetBackgroundColour():
-            obj.SetBackgroundColour(color)
-            self.update_save_dicom_enable()
-
-    def update_save_dicom_enable(self):
-        enable = isdir(self.input['in_dir'].GetValue()) and \
-                 isdir(self.input['out_dir'].GetValue()) and \
-                 self.data_table_has_data
-        self.button['save_dicom'].Enable(enable)
-
-        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue() and \
-                not self.input['prepend_file_name'].GetValue():
-            self.input['prepend_file_name'].ChangeValue('copy_')
-
-    def on_enter_key_dir(self, obj):
-        new_dir = obj.GetValue()
-        key = 'in' if obj == self.input['in_dir'] else 'out'
-        if new_dir == self.directory[key]:
-            if isdir(obj.GetValue()):
-                if obj == self.input['in_dir']:
-                    self.refresh_ds()
-            else:
-                ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
-                dir_key = 'in' if obj == self.input['in_dir'] else 'out'
-                self.directory[dir_key] = new_dir
-
-    def refresh_ds(self):
-        self.get_files()
-        self.ds = {}
-        new_file_paths = []
-        for f in self.file_paths:
-            try:
-                self.ds[f] = DICOMEditor(f)
-                new_file_paths.append(f)
-            except Exception:
-                pass
-        self.file_paths = new_file_paths
-        self.update_combo_box_files()
-        self.update_init_value()
-
-    def update_combo_box_files(self):
-        choices = [basename(f) for f in self.file_paths]
-        self.input['selected_file'].Enable()
-        self.input['selected_file'].SetItems(choices)
-        if choices:
-            self.input['selected_file'].SetValue(choices[0])
-
-    def on_file_select(self, *evt):
-        self.update_init_value()
-
-    def update_init_value(self):
-        index = self.input['selected_file'].GetSelection()
-        if self.group and self.element:
-            try:
-                value = self.ds[self.file_paths[index]].get_tag_value(self.tag.tag)
-                self.input['value'].SetValue(value)
-            except Exception:
-                self.input['value'].SetValue('')
-        self.update_modality(index)
-
-    def update_modality(self, index=None):
-        if index is None:
-            index = self.input['selected_file'].GetSelection()
-        modality = self.ds[self.file_paths[index]].modality if self.file_paths else ''
-        self.label['modality'].SetLabel('Modality: ' + modality)
-
-    def on_out_browse(self, *evt):
-        self.on_browse(self.input['out_dir'])
-
     def on_add(self, *evt):
+        """Add a tag edit"""
         try:
             description = self.ds[self.file_paths[0]].get_tag_name(self.tag.tag)
         except KeyError:
@@ -371,11 +271,8 @@ class MainFrame(wx.Frame):
         self.update_save_template_enable()
         self.update_save_dicom_enable()
 
-    @property
-    def data_table_has_data(self):
-        return self.data_table.has_data and self.data_table.get_row(0)[0] != ''
-
     def on_delete(self, *evt):
+        """Delecte the selected tag edits"""
         for index in self.selected_indices[::-1]:
             self.data_table.delete_row(index)
         self.update_delete_enable()
@@ -383,14 +280,17 @@ class MainFrame(wx.Frame):
         self.update_save_dicom_enable()
 
     def on_select_all(self, *evt):
+        """Select all tag edits"""
         self.data_table.apply_selection_to_all(True)
         self.button['delete'].Enable()
 
     def on_deselect_all(self, *evt):
+        """Deselect all tag edits"""
         self.data_table.apply_selection_to_all(False)
         self.button['delete'].Disable()
 
     def on_save_template(self, *evt):
+        """Save the current tag edits to a CSV"""
         dlg = wx.FileDialog(self, "Save template", "", wildcard='*.csv',
                             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
         if dlg.ShowModal() == wx.ID_OK:
@@ -398,6 +298,7 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
 
     def on_load_template(self, *evt):
+        """Load a CSV of tag edits"""
         dlg = wx.FileDialog(self, "Load template", "", wildcard='*.csv', style=wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             columns, data = load_csv_from_file(dlg.GetPath())
@@ -407,34 +308,257 @@ class MainFrame(wx.Frame):
                 self.update_save_template_enable()
                 self.update_save_dicom_enable()
 
+    def on_save_dicom(self, *evt):
+        """Apply edits, check for errors, then run save_files"""
+        do_save = True
+        error_log = self.apply_edits()  # Edits the loaded pydicom datasets
+        if error_log:
+            ViewErrorLog(error_log)
+            do_save = AskYesNo(self, "Continue writing DICOM files anyway?").run
+
+        if do_save:
+            if self.save_files(overwrite_check_only=True):
+                msg = "You will overwrite files with this action. Continue?"
+                caption = "Are you sure?"
+                flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
+                with wx.MessageDialog(self, msg, caption, flags) as dlg:
+                    if dlg.ShowModal() != wx.ID_YES:
+                        return
+            self.save_files()
+
+            # If in and out directories are the same, need to update file list and datasets with new files
+            if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue():
+                self.get_files()
+                self.refresh_ds()
+
+    def on_quit(self, *evt):
+        self.Close()
+
+    #################################################################################
+    # Key Event tickers
+    #################################################################################
+    def on_key_up(self, evt):
+        """Called anytime a user's key is released"""
+        keycode = evt.GetKeyCode()
+        if keycode == wx.WXK_TAB:
+            self.on_tab_key(evt)
+        elif evt.GetEventObject() in {self.input['tag_group'], self.input['tag_element']}:
+            self.update_description()
+        evt.Skip()
+
+    def on_tab_key(self, evt):
+        obj = evt.GetEventObject()
+        index = self.input_text_obj.index(obj)
+        index = index + 1 if index + 1 < len(self.input_text_obj) else 0
+        if obj in {self.input['in_dir'], self.input['out_dir']}:
+            new_dir = obj.GetValue()
+            if isdir(new_dir):
+                if obj == self.input['in_dir'] and new_dir != self.directory['in']:
+                    self.refresh_ds()
+            else:
+                ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+                dir_key = 'in' if obj == self.input['in_dir'] else 'out'
+                self.directory[dir_key] = new_dir
+                index -= 1
+        self.input_text_obj[index].SetFocus()
+        self.update_save_dicom_enable()
+        self.update_description()
+        if obj == self.input['in_dir']:
+            self.update_init_value()
+
+    def on_key_down_dir(self, evt):
+        """Called on any key down in directory TextCtrl, only act on Enter/Return"""
+        keycode = evt.GetKeyCode()
+        obj = evt.GetEventObject()
+        if keycode == wx.WXK_RETURN:
+            self.on_enter_key_dir(obj)
+            if obj == self.input['in_dir']:
+                self.update_description()
+                self.update_init_value()
+        else:
+            evt.Skip()
+
+    def on_enter_key_dir(self, obj):
+        """
+        Similar to on_browse, except need to check for valid directory
+        :param obj: either in_dir or out_dir TextCtrl objects
+        :type obj: wx.TextCtrl
+        """
+        new_dir = obj.GetValue()
+        key = 'in' if obj == self.input['in_dir'] else 'out'
+        if new_dir == self.directory[key]:
+            if isdir(obj.GetValue()):
+                if obj == self.input['in_dir']:
+                    self.refresh_ds()
+            else:
+                ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+                dir_key = 'in' if obj == self.input['in_dir'] else 'out'
+                self.directory[dir_key] = new_dir
+
+    #################################################################################
+    # Combobox Event tickers
+    #################################################################################
+    def on_file_select(self, *evt):
+        self.update_init_value()
+
+    #################################################################################
+    # Text Event tickers
+    #################################################################################
+    def update_dir_obj_text_color(self, evt):
+        """Set directory TextCtrl background to orange if directory is invalid"""
+        obj = evt.GetEventObject()
+        orange = (255, 153, 51, 255)
+        color = wx.WHITE if isdir(obj.GetValue()) else orange  # else orange
+        if color != obj.GetBackgroundColour():
+            obj.SetBackgroundColour(color)
+            self.update_save_dicom_enable()
+
+    #################################################################################
+    # Widget Enabling
+    #################################################################################
+    def update_save_dicom_enable(self):
+        """Disable save dicom button if there is not enough information provided"""
+        enable = isdir(self.input['in_dir'].GetValue()) and \
+                 isdir(self.input['out_dir'].GetValue()) and \
+                 self.data_table_has_data
+        self.button['save_dicom'].Enable(enable)
+
+        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue() and \
+                not self.input['prepend_file_name'].GetValue():
+            self.input['prepend_file_name'].ChangeValue('copy_')
+
     def update_delete_enable(self, *evt):
+        """Only enable delete button if edits in the ListCtrl are selected"""
         self.button['delete'].Enable(len(self.data_table.selected_row_data))
 
     def update_save_template_enable(self):
+        """Only enable save button if the ListCtrl has data"""
         self.button['save_template'].Enable(self.data_table_has_data)
 
-    @property
-    def selected_indices(self):
-        return get_selected_listctrl_items(self.list_ctrl)
+    #################################################################################
+    # Widget updaters
+    #################################################################################
+    def update_files_found(self):
+        """Update the number of files in the GUI"""
+        found = len(self.file_paths)
+        label = "Files Found: %s" % found
+        self.label['files_found'].SetLabel(label)
+        self.button['add'].Enable(found > 0)
 
+    def update_combobox_files(self):
+        """Update the combobox with the file names found in the current in directory"""
+        choices = [basename(f) for f in self.file_paths]
+        self.input['selected_file'].Enable()
+        self.input['selected_file'].SetItems(choices)
+        if choices:
+            self.input['selected_file'].SetValue(choices[0])
+
+        self.update_init_value()
+
+    def update_init_value(self):
+        """Update Value in the Tag Editor based on the currently selected file"""
+        index = self.input['selected_file'].GetSelection()
+        if self.group and self.element:
+            try:
+                value = self.ds[self.file_paths[index]].get_tag_value(self.tag.tag)
+                self.input['value'].SetValue(value)
+            except Exception:
+                self.input['value'].SetValue('')
+        self.update_modality(index)
+
+    def update_modality(self, file_index):
+        """
+        Update Modality in the Directory box based on the currently selected file
+        :param file_index: the index of self.file_paths for the file of interest
+        :type file_index: int
+        """
+        if file_index is None:
+            file_index = self.input['selected_file'].GetSelection()
+        modality = self.ds[self.file_paths[file_index]].modality if self.file_paths else ''
+        self.label['modality'].SetLabel('Modality: ' + modality)
+
+    def update_description(self):
+        """Update Description in the Tag Editor based on the current Tag and currently selected file"""
+        description = self.description if self.group and self.element else ''
+        self.label['description'].SetLabel("Description: %s" % description)
+        self.update_tag_type()
+
+    def update_tag_type(self):
+        """Update tag type in the Tag Editor based on the current Tag and currently selected file"""
+        tag = self.tag.tag
+        tag_type = 'str'
+        for file_path in self.file_paths:
+            try:
+                tag_type = self.ds[file_path].get_tag_type(tag)
+                break
+            except Exception:
+                pass
+        self.input['value_type'].SetValue(tag_type)
+
+    #################################################################################
+    # Data updaters
+    #################################################################################
+    def get_files(self):
+        """Get a list of all files in the currently specified in directory"""
+        dir_path = self.input['in_dir'].GetValue()
+        if isdir(dir_path):
+            self.file_paths = sorted(get_file_paths(dir_path))
+        else:
+            self.file_paths = []
+        self.update_files_found()
+
+    def refresh_ds(self):
+        """Update the stored DICOMEditor objects in self.ds"""
+        self.get_files()
+        self.ds = {}
+        new_file_paths = []
+        for f in self.file_paths:
+            try:
+                self.ds[f] = DICOMEditor(f)
+                new_file_paths.append(f)
+            except Exception:
+                pass
+        self.file_paths = new_file_paths
+        self.update_combobox_files()
+
+    #################################################################################
+    # Finally... run the DICOM editor and save DICOM files
+    #################################################################################
     def apply_edits(self):
-        for ds in self.ds.values():
+        """Apply the tag edits to every file in self.ds, return any errors"""
+        error_log = []
+        for file_path, ds in self.ds.items():
             for row in range(self.data_table.row_count):
                 row_data = self.data_table.get_row(row)
                 group = row_data[0].split(',')[0][1:].strip()
                 element = row_data[0].split(',')[1][:-1].strip()
-                tag = Tag(group, element).tag
+                tag = Tag(group, element)
 
                 value_str = row_data[2]
                 value_type = get_type(row_data[3])
                 value = value_type(value_str)
 
                 try:
-                    ds.edit_tag(tag, value)
-                except Exception:
-                    pass
+                    ds.edit_tag(tag.tag, value)
+                except Exception as e:
+                    if type(e) is KeyError:
+                        msg = "KeyError: %s is not a valid tag for this DICOM file" % str(tag)
+                    else:
+                        msg = str(e)
+                    value = value if value else '[empty value]'
+                    error_log.append("Directory: %s\nFile: %s\n\tAttempt to edit %s to new value: %s\n\t%s\n" %
+                                     (dirname(file_path), basename(file_path), str(tag), value, msg))
+
+        return '\n'.join(error_log)
 
     def save_files(self, overwrite_check_only=False):
+        """
+        Save all of the loaded pydicom datasets with the new edits
+        :param overwrite_check_only: If true, perform loop without save to check for overwriting
+        :type overwrite_check_only: bool
+        :return: status of file overwriting, if overwrite_check_only=True
+        :rtype: bool
+        """
         output_dir = self.input['out_dir'].GetValue()
         prepend = self.input['prepend_file_name'].GetValue()
         for file_path, ds in self.ds.items():
@@ -453,35 +577,9 @@ class MainFrame(wx.Frame):
         if overwrite_check_only:
             return False
 
-    def update_description(self):
-        description = self.description if self.group and self.element else ''
-        self.label['description'].SetLabel("Description: %s" % description)
-        self.update_tag_type()
-
-    def update_tag_type(self):
-        tag = self.tag.tag
-        tag_type = 'str'
-        for file_path in self.file_paths:
-            try:
-                tag_type = self.ds[file_path].get_tag_type(tag)
-                break
-            except Exception:
-                pass
-        self.input['value_type'].SetValue(tag_type)
-
-    @property
-    def description(self):
-        for file_path in self.file_paths:
-            try:
-                return self.ds[file_path].get_tag_name(self.tag.tag)
-            except Exception:
-                pass
-        return 'Not Found'
-
 
 class MainApp(wx.App):
     def OnInit(self):
-
         self.SetAppName('DVHA DICOM Editor')
         self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor v%s" % VERSION)
         self.SetTopWindow(self.frame)

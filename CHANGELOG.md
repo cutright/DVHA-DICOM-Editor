@@ -1,5 +1,9 @@
 # Change log of DVHA DICOM Editor
 
+v0.3 (TBD)
+--------------------
+ - Catch tag edit exceptions, display error log in window
+ 
 v0.2 (2020.03.27)
 --------------------
  - Allow user to select a file to pre-populate the value input
