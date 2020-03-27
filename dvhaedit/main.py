@@ -151,8 +151,8 @@ class MainFrame(wx.Frame):
         sizer_output_dir.Add(self.input['out_dir'], 1, wx.EXPAND | wx.ALL, 5)
         sizer_output_dir.Add(self.button['out_browse'], 0, wx.ALL, 5)
         sizer_output_dir_wrapper.Add(sizer_output_dir, 0, wx.ALL | wx.EXPAND, 5)
-        sizer_output_dir_prepend.Add(self.label['prepend_file_name'], 0, wx.LEFT, 5)
-        sizer_output_dir_prepend.Add(self.input['prepend_file_name'], 1, wx.EXPAND | wx.RIGHT, 105)
+        sizer_output_dir_prepend.Add(self.label['prepend_file_name'], 0, wx.TOP | wx.LEFT | wx.RIGHT, 5)
+        sizer_output_dir_prepend.Add(self.input['prepend_file_name'], 1, wx.EXPAND | wx.RIGHT, 110)
         sizer_output_dir_wrapper.Add(sizer_output_dir_prepend, 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
         sizer_main.Add(sizer_output_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
@@ -347,7 +347,10 @@ class MainFrame(wx.Frame):
         self.on_browse(self.input['out_dir'])
 
     def on_add(self, *evt):
-        description = self.ds[self.file_paths[0]].get_tag_name(self.tag.tag)
+        try:
+            description = self.ds[self.file_paths[0]].get_tag_name(self.tag.tag)
+        except KeyError:
+            description = 'Unknown'
         row = [str(self.tag), description, self.input['value'].GetValue(), self.input['value_type'].GetValue()]
         if self.data_table_has_data:
             self.data_table.append_row(row)
