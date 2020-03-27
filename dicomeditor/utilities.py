@@ -1,7 +1,6 @@
 import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
-import pickle
 
 
 def get_file_paths(start_path, search_sub_folders=False, extension=None):
