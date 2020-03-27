@@ -1,3 +1,16 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# utilities.py
+"""
+General utilities borrowed from DVH Analytics
+"""
+# Copyright (c) 2016-2020 Dan Cutright
+# This file is part of DVH Analytics, released under a BSD license.
+#    See the file LICENSE included with this distribution, also
+#    available at https://github.com/cutright/DVH-Analytics
+
+
 import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join

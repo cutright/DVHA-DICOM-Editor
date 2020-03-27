@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# models.data_table.py
+# data_table.py
 """
 A class to sync a data object and list_ctrl
 """
-# Copyright (c) 2016-2019 Dan Cutright
+# Copyright (c) 2016-2020 Dan Cutright
 # This file is part of DVH Analytics, released under a BSD license.
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVH-Analytics
 
 from copy import deepcopy
 import wx
-from dicomeditor.utilities import get_sorted_indices, get_selected_listctrl_items
+from dvhaedit.utilities import get_sorted_indices, get_selected_listctrl_items
 
 
 class DataTable:

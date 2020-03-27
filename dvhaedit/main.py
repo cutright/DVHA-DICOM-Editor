@@ -1,12 +1,25 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# main.py
+"""
+The main file for DVHA DICOM Editor
+"""
+# Copyright (c) 2020 Dan Cutright
+# This file is part of DVHA DICOM Editor, released under a BSD license.
+#    See the file LICENSE included with this distribution, also
+#    available at https://github.com/cutright/DVHA-DICOM-Editor
+
+
 import wx
 from os.path import isdir, basename, join
-from dicomeditor.data_table import DataTable
-from dicomeditor.dicom_editor import DICOMEditor, Tag
-from dicomeditor.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
+from dvhaedit.data_table import DataTable
+from dvhaedit.dicom_editor import DICOMEditor, Tag
+from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
     save_csv_to_file, load_csv_from_file, ErrorDialog
 
 
-VERSION = 'v0.2'
+VERSION = '0.2rc1'
 
 
 class MainFrame(wx.Frame):
@@ -464,7 +477,7 @@ class MainApp(wx.App):
     def OnInit(self):
 
         self.SetAppName('DVHA DICOM Editor')
-        self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor %s" % VERSION)
+        self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor v%s" % VERSION)
         self.SetTopWindow(self.frame)
         self.frame.Show()
         return True

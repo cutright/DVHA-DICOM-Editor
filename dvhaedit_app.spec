@@ -3,7 +3,7 @@
 block_cipher = None
 
 
-a = Analysis(['app.py'],
+a = Analysis(['dvhaedit_app.py'],
              pathex=[r".",
                      r".\venv\Lib\site-packages"],
              binaries=[],
@@ -24,7 +24,7 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='DVHA  DICOM Editor',
+          name='DVHA DICOM Editor',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,

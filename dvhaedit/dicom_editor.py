@@ -1,3 +1,16 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# dicom_editor.py
+"""
+Classes used to edit pydicom datasets
+"""
+# Copyright (c) 2020 Dan Cutright
+# This file is part of DVHA DICOM Editor, released under a BSD license.
+#    See the file LICENSE included with this distribution, also
+#    available at https://github.com/cutright/DVHA-DICOM-Editor
+
+
 import pydicom
 
 
