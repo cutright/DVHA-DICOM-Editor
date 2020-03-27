@@ -167,9 +167,6 @@ class MainFrame(wx.Frame):
         self.Center()
 
     def on_key_up(self, evt):
-        self.update_description()
-        self.update_init_value()
-
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_TAB:
             self.on_tab_key(evt)
@@ -191,6 +188,9 @@ class MainFrame(wx.Frame):
                 index -= 1
         self.input_obj[index].SetFocus()
         self.update_save_dicom_enable()
+        self.update_description()
+        if obj == self.input['in_dir']:
+            self.update_init_value()
 
     def get_files(self):
         dir_path = self.input['in_dir'].GetValue()
@@ -270,6 +270,9 @@ class MainFrame(wx.Frame):
         obj = evt.GetEventObject()
         if keycode == wx.WXK_RETURN:
             self.on_enter_key_dir(obj)
+            if obj == self.input['in_dir']:
+                self.update_description()
+                self.update_init_value()
         else:
             evt.Skip()
 
