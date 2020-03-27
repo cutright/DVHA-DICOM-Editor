@@ -19,7 +19,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     save_csv_to_file, load_csv_from_file, ErrorDialog
 
 
-VERSION = '0.2rc1'
+VERSION = '0.2'
 
 
 class MainFrame(wx.Frame):
