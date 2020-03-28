@@ -46,46 +46,61 @@ class AskYesNo(wx.MessageDialog):
 
 
 class ViewErrorLog(wx.Dialog):
-    """Simple dialog to display the error log in a scrollable window"""
-
+    """Dialog to display the error log in a scrollable window"""
     def __init__(self, error_log):
+        """
+        :param error_log: error log text
+        :type error_log: str
+        """
         wx.Dialog.__init__(self, None, title='Error log')
 
         self.error_log = error_log
+        self.button = {'dismiss': wx.Button(self, wx.ID_OK, "Dismiss"),
+                       'save': wx.Button(self, wx.ID_ANY, "Save")}
+        self.scrolled_window = wx.ScrolledWindow(self, wx.ID_ANY)
+        self.text = wx.StaticText(self.scrolled_window, wx.ID_ANY,
+                                  "The following errors occurred while editing DICOM tags...\n\n%s" % self.error_log)
 
-        scrolled_window = wx.ScrolledWindow(self, wx.ID_ANY)
+        self.__set_properties()
+        self.__do_bind()
+        self.__do_layout()
 
-        text = "The following errors occurred while editing DICOM tags...\n\n%s" % error_log
+        self.run()
 
+    def __do_bind(self):
+        self.Bind(wx.EVT_BUTTON, self.on_save, id=self.button['save'].GetId())
+
+    def __set_properties(self):
+        self.scrolled_window.SetScrollRate(20, 20)
+        self.scrolled_window.SetBackgroundColour(wx.WHITE)
+
+    def __do_layout(self):
+        # Create sizers
         sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
         sizer_text = wx.BoxSizer(wx.VERTICAL)
         sizer_buttons = wx.BoxSizer(wx.HORIZONTAL)
 
-        dismiss_button = wx.Button(self, wx.ID_OK, "Dismiss")
-        save_button = wx.Button(self, wx.ID_ANY, "Save")
-        self.Bind(wx.EVT_BUTTON, self.on_save, id=save_button.GetId())
+        # Add error log text
+        sizer_text.Add(self.text, 0, wx.EXPAND | wx.ALL, 5)
+        self.scrolled_window.SetSizer(sizer_text)
+        sizer_wrapper.Add(self.scrolled_window, 1, wx.EXPAND, 0)
 
-        scrolled_window.SetScrollRate(20, 20)
-
-        text = wx.StaticText(scrolled_window, wx.ID_ANY, text)
-        sizer_text.Add(text, 0, wx.EXPAND | wx.ALL, 5)
-        scrolled_window.SetSizer(sizer_text)
-        sizer_wrapper.Add(scrolled_window, 1, wx.EXPAND, 0)
-
-        sizer_buttons.Add(save_button, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
-        sizer_buttons.Add(dismiss_button, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        # Add buttons
+        sizer_buttons.Add(self.button['save'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_buttons.Add(self.button['dismiss'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
         sizer_wrapper.Add(sizer_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
-
-        scrolled_window.SetBackgroundColour(wx.WHITE)
 
         self.SetSizer(sizer_wrapper)
         self.SetSize(get_window_size(0.4, 0.4))
         self.Center()
 
+    def run(self):
+        """Open dialog, close on Dismiss click"""
         self.ShowModal()
         self.Destroy()
 
     def on_save(self, *evt):
+        """On save button click, create save window to save error log"""
         dlg = wx.FileDialog(self, "Save error log", "", wildcard='*.txt',
                             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
         if dlg.ShowModal() == wx.ID_OK:
@@ -94,72 +109,94 @@ class ViewErrorLog(wx.Dialog):
 
 
 class TagSearchDialog(wx.Dialog):
+    """A dialog consisting of a search bar and table of partial DICOM Tag matches"""
     def __init__(self, parent):
+        """
+        :param parent: main frame of DVHA DICOM Edit
+        """
         wx.Dialog.__init__(self, parent, title='DICOM Tag Search')
 
         self.parent = parent
 
+        # Create search bar and TagSearch class
         self.search_ctrl = wx.SearchCtrl(self, wx.ID_ANY, "")
+        self.search_ctrl.ShowCancelButton(True)
         self.search = TagSearch()
 
+        # Create table for search results
         columns = ['Keyword', 'Tag']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT | wx.LC_SINGLE_SEL)
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2, -2])
 
+        # Create buttons
         keys = {'select': wx.ID_OK, 'cancel': wx.ID_CANCEL}
         self.button = {key: wx.Button(self, id_, key.capitalize()) for key, id_ in keys.items()}
 
-        self.__set_properties()
         self.__do_bind()
         self.__do_layout()
 
-        res = self.ShowModal()
-        if res == wx.ID_OK:
-            self.set_tag_to_selection()
-        self.Destroy()
-
-    def __set_properties(self):
-        pass
+        self.run()
 
     def __do_bind(self):
         self.Bind(wx.EVT_TEXT, self.update, id=self.search_ctrl.GetId())
+        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_double_click, id=self.list_ctrl.GetId())
 
     def __do_layout(self):
+        # Create sizers
         sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
         sizer_main = wx.BoxSizer(wx.VERTICAL)
         sizer_search = wx.BoxSizer(wx.VERTICAL)
         sizer_buttons = wx.BoxSizer(wx.HORIZONTAL)
 
+        # Add search bar and results table
         sizer_search.Add(self.search_ctrl, 0, wx.EXPAND | wx.ALL, 5)
         sizer_search.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 5)
         sizer_main.Add(sizer_search, 1, wx.EXPAND | wx.ALL, 5)
 
+        # Add buttons
         sizer_buttons.Add(self.button['select'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
         sizer_buttons.Add(self.button['cancel'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
         sizer_main.Add(sizer_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
 
+        # Add everything to window wrapper
         sizer_wrapper.Add(sizer_main, 1, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(sizer_wrapper)
         self.SetSize(get_window_size(0.4, 0.4))
         self.Center()
 
+    def run(self):
+        """Open dialog, perform action if Select button is clicked, then close"""
+        res = self.ShowModal()
+        if res == wx.ID_OK:  # if user clicks Select button
+            self.set_tag_to_selection()
+        self.Destroy()
+
     @property
     def data_dict(self):
+        """Get the DICOM Tag table data with current search_ctrl value"""
         return self.search(self.search_ctrl.GetValue())
 
     @property
     def selected_tag(self):
+        """Get the Tag of the currently selected/activated row in list_ctrl"""
         selected_data = self.data_table.selected_row_data
         if selected_data:
             return selected_data[0][1]
 
     def update(self, *evt):
+        """Set the table date based on the current search_ctrl value"""
         self.data_table.set_data(**self.data_dict)
 
     def set_tag_to_selection(self):
+        """Set the Group and Element list_ctrl values in the main app"""
         tag = self.selected_tag
         if tag:
             self.parent.input['tag_group'].SetValue(tag.group)
             self.parent.input['tag_element'].SetValue(tag.element)
+
+    def on_double_click(self, evt):
+        """Treat double-click the same as selecting a row then clicking Select"""
+        self.set_tag_to_selection()
+        self.Close()

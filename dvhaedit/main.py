@@ -41,7 +41,7 @@ class MainFrame(wx.Frame):
                 'save_template', 'load_template']
         self.button = {key: wx.Button(self, wx.ID_ANY, key.replace('_', ' ').title()) for key in keys}
         bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
-        self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp,  size=(bmp.GetWidth() + 10, bmp.GetHeight() + 10))
+        self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
         columns = ['Tag', 'Description', 'Value', 'Value Type']
         data = {c: [''] for c in columns}
@@ -49,7 +49,7 @@ class MainFrame(wx.Frame):
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'selected_file',
-                'modality', 'prepend_file_name']
+                'modality', 'prepend_file_name', 'add', 'search']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
         self.file_paths = []
@@ -70,6 +70,9 @@ class MainFrame(wx.Frame):
         self.button['save_dicom'].SetLabel('Save DICOM')
         self.button['save_template'].SetLabel('Save')
         self.button['load_template'].SetLabel('Load')
+
+        self.label['add'].SetLabel(' ')
+        self.label['search'].SetLabel(' ')
 
         for key in ['add', 'delete', 'save_dicom', 'save_template']:
             self.button[key].Disable()
@@ -112,7 +115,7 @@ class MainFrame(wx.Frame):
         sizer_edit_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Tag Editor"), wx.VERTICAL)
         sizer_edit = wx.BoxSizer(wx.HORIZONTAL)
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
-                              for key in ['tag_group', 'tag_element', 'value', 'value_type', 'add']}
+                              for key in ['tag_group', 'tag_element', 'value', 'value_type', 'add', 'search']}
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.VERTICAL)
         sizer_output_dir = wx.BoxSizer(wx.HORIZONTAL)
@@ -131,14 +134,11 @@ class MainFrame(wx.Frame):
         sizer_main.Add(sizer_input_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
         # Input Widgets
-        for key in ['tag_group', 'tag_element', 'value_type']:
+        for key in ['search', 'tag_group', 'tag_element', 'value_type', 'add']:
+            obj = self.button if key in {'search', 'add'} else self.input
             sizer_edit_widgets[key].Add(self.label[key], 0, 0, 0)
-            sizer_edit_widgets[key].Add(self.input[key], 0, wx.EXPAND, 0)
+            sizer_edit_widgets[key].Add(obj[key], 0, wx.EXPAND, 0)
             sizer_edit.Add(sizer_edit_widgets[key], 0, wx.EXPAND | wx.ALL, 5)
-        sizer_edit_widgets['add'].Add((5, 13), 0, wx.EXPAND, 0)  # Align Button
-        sizer_edit_widgets['add'].Add(self.button['add'], 0, wx.EXPAND, 0)
-        sizer_edit.Add(sizer_edit_widgets['add'], 0, wx.EXPAND | wx.ALL, 5)
-        sizer_edit.Add(self.button['search'], 0, wx.EXPAND | wx.ALL, 5)
         sizer_edit_wrapper.Add(sizer_edit, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_edit_wrapper.Add(self.label['value'], 0, wx.LEFT, 10)
