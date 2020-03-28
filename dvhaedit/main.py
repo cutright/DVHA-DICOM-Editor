@@ -74,6 +74,12 @@ class MainFrame(wx.Frame):
         self.label['add'].SetLabel(' ')
         self.label['search'].SetLabel(' ')
 
+        self.button['search'].SetToolTip("Search for DICOM tag based on keyword.")
+
+        self.label['description'].SetToolTip("If a description is not found, then the current tag could not be found "
+                                             "in any of the loaded DICOM Files or it is within a sequence "
+                                             "(not yet supported).")
+
         for key in ['add', 'delete', 'save_dicom', 'save_template']:
             self.button[key].Disable()
 
@@ -450,6 +456,7 @@ class MainFrame(wx.Frame):
         label = "Files Found: %s" % found
         self.label['files_found'].SetLabel(label)
         self.button['add'].Enable(found > 0)
+        self.button['search'].Enable(found > 0)
 
     def update_combobox_files(self):
         """Update the combobox with the file names found in the current in directory"""

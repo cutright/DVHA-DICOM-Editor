@@ -123,6 +123,8 @@ class TagSearchDialog(wx.Dialog):
         self.search_ctrl.ShowCancelButton(True)
         self.search = TagSearch()
 
+        self.note = wx.StaticText(self, wx.ID_ANY, "NOTE: The loaded DICOM file(s) may not have the selected tag.")
+
         # Create table for search results
         columns = ['Keyword', 'Tag']
         data = {c: [''] for c in columns}
@@ -141,6 +143,7 @@ class TagSearchDialog(wx.Dialog):
     def __do_bind(self):
         self.Bind(wx.EVT_TEXT, self.update, id=self.search_ctrl.GetId())
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_double_click, id=self.list_ctrl.GetId())
+        self.Bind(wx.EVT_LIST_COL_CLICK, self.data_table.sort_table, self.list_ctrl)
 
     def __do_layout(self):
         # Create sizers
@@ -151,6 +154,7 @@ class TagSearchDialog(wx.Dialog):
 
         # Add search bar and results table
         sizer_search.Add(self.search_ctrl, 0, wx.EXPAND | wx.ALL, 5)
+        sizer_search.Add(self.note, 0, wx.EXPAND | wx.ALL, 5)
         sizer_search.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 5)
         sizer_main.Add(sizer_search, 1, wx.EXPAND | wx.ALL, 5)
 
@@ -168,6 +172,7 @@ class TagSearchDialog(wx.Dialog):
 
     def run(self):
         """Open dialog, perform action if Select button is clicked, then close"""
+        self.update()
         res = self.ShowModal()
         if res == wx.ID_OK:  # if user clicks Select button
             self.set_tag_to_selection()
@@ -195,6 +200,7 @@ class TagSearchDialog(wx.Dialog):
         if tag:
             self.parent.input['tag_group'].SetValue(tag.group)
             self.parent.input['tag_element'].SetValue(tag.element)
+            self.parent.update_description()
 
     def on_double_click(self, evt):
         """Treat double-click the same as selecting a row then clicking Select"""

@@ -15,6 +15,9 @@ from pydicom.datadict import keyword_dict
 from dvhaedit.utilities import remove_non_alphanumeric
 
 
+keyword_dict.pop('')  # remove the empty keyword
+
+
 class DICOMEditor:
     """DICOM editing and value getter class"""
     def __init__(self, dcm):
@@ -126,7 +129,7 @@ class TagSearch:
         if partial_keyword:
             partial_keyword = remove_non_alphanumeric(partial_keyword).lower()
             return [self.lower_case_map[key] for key in self.lower_case_map if partial_keyword in key]
-        return ['']
+        return self.keywords
 
     @staticmethod
     def keyword_to_tag(keyword):
@@ -137,10 +140,7 @@ class TagSearch:
 
     def get_table_data(self, search_str):
         columns = ['Keyword', 'Tag']
-        if search_str:
-            matches = sorted(self.get_keyword_matches(search_str))
-            tags = [self.keyword_to_tag(match) for match in matches]
-            data = {'Keyword': matches, 'Tag': tags}
-        else:
-            data = {'Keyword': [''], 'Tag': ['']}
+        matches = sorted(self.get_keyword_matches(search_str))
+        tags = [self.keyword_to_tag(match) for match in matches]
+        data = {'Keyword': matches, 'Tag': tags}
         return {'data': data, 'columns': columns}
