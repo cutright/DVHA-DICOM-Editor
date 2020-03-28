@@ -11,7 +11,8 @@ The main file for DVHA DICOM Editor
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 import wx
-from os.path import isdir, basename, join, dirname
+from os import sep
+from os.path import isdir, basename, join, dirname, normpath, splitext
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog
 from dvhaedit.dicom_editor import DICOMEditor, Tag
@@ -541,6 +542,44 @@ class MainFrame(wx.Frame):
         self.update_combobox_files()
 
     #################################################################################
+    # Utilities
+    #################################################################################
+    def apply_dir_to_value(self, value, file_path):
+        if self.value_has_func(value):
+            for i in range(value.count('dir')):
+                dir_value, index = self.get_nth_dir_from_file_path(value, i, file_path)
+                value = value.replace('*dir[%s]*' % index, dir_value)
+        return value
+
+    @staticmethod
+    def value_has_func(value):
+        """Check if value has a special function"""
+        return value.count('*') % 2 == 0
+
+    @property
+    def value_has_dir_func(self):
+        value = self.input['value'].GetValue().lower()
+        return self.value_has_func(value) and '*dir[' in value and ']' in value
+
+    @staticmethod
+    def path_index(value, n):
+        if '*dir[' in value and ']' in value:
+            value_split = value.split('*')
+            index_temp = value_split[n*2 + 1].split('dir[')[1]
+            index_temp_end = index_temp.index(']')
+            try:
+                return int(index_temp[:index_temp_end])
+            except TypeError:
+                pass
+
+    def get_nth_dir_from_file_path(self, value, n, file_path):
+        index = self.path_index(value, n)
+        if index is not None:
+            components = normpath(file_path).split(sep)
+            if index < len(components):
+                return splitext(components[index])[0], index
+
+    #################################################################################
     # Finally... run the DICOM editor and save DICOM files
     #################################################################################
     def apply_edits(self):
@@ -558,15 +597,12 @@ class MainFrame(wx.Frame):
                 value = value_type(value_str)
 
                 try:
+                    value = self.apply_dir_to_value(value, file_path)
                     ds.edit_tag(tag.tag, value)
                 except Exception as e:
-                    if type(e) is KeyError:
-                        msg = "KeyError: %s is not a valid tag for this DICOM file" % str(tag)
-                    else:
-                        msg = str(e)
                     value = value if value else '[empty value]'
                     error_log.append("Directory: %s\nFile: %s\n\tAttempt to edit %s to new value: %s\n\t%s\n" %
-                                     (dirname(file_path), basename(file_path), str(tag), value, msg))
+                                     (dirname(file_path), basename(file_path), str(tag), value, str(e)))
 
         return '\n'.join(error_log)
 

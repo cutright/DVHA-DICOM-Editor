@@ -26,5 +26,20 @@ python dvhaedit_app.py
 ```
 Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 
-### Screenshot
+Dynamic Value Setting
+---------
+Dynamic values are denoted by encapsulating asterisks.
+
+Currently, the only function available is `dir` for directory. If `*dir[n]*` is in your value will, it will be 
+replaced with the n<sup>th</sup> component of the file path for the file being edited.
+
+For example, for a file `/some/file/path/your_file.dcm`:
+* `some_string_*dir[-1]` -->  `some_string_your_file`
+* `*dir[-2]*_AnotherString` --> `path_AnotherString`
+
+
+This feature is still in development. Check back soon for more features.
+
+Screenshot
+---------
 <img src='https://user-images.githubusercontent.com/4778878/77683755-e0f94000-6f66-11ea-958c-a94c5c895266.png' align='center' width='400' alt="DVH Analytics screenshot">

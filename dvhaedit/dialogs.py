@@ -200,6 +200,7 @@ class TagSearchDialog(wx.Dialog):
         if tag:
             self.parent.input['tag_group'].SetValue(tag.group)
             self.parent.input['tag_element'].SetValue(tag.element)
+            self.parent.update_init_value()
             self.parent.update_description()
 
     def on_double_click(self, evt):

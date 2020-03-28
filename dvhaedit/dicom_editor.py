@@ -132,7 +132,7 @@ class Tag:
 
     @property
     def VR(self):
-        if not self.has_x and int(self.group + self.element):
+        if not self.has_x and self.group and self.element:
             try:
                 return get_entry(self.tag_as_int)[0]
             except KeyError:

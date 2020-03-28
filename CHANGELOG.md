@@ -5,6 +5,7 @@ v0.3 (TBD)
  - Catch tag edit exceptions, display error log in window
  - Reorganized code so it is easier to follow, lots of comments added
  - Search for DICOM tags
+ - Values can be dynamically defined based on the file_path of the file being edited  
  
 v0.2 (2020.03.27)
 --------------------
