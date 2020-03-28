@@ -10,13 +10,13 @@ The main file for DVHA DICOM Editor
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
-
 import wx
 from os.path import isdir, basename, join, dirname
 from dvhaedit.data_table import DataTable
+from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog
 from dvhaedit.dicom_editor import DICOMEditor, Tag
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    save_csv_to_file, load_csv_from_file, ErrorDialog, ViewErrorLog, AskYesNo
+    save_csv_to_file, load_csv_from_file
 
 
 VERSION = '0.3dev1'
@@ -40,6 +40,8 @@ class MainFrame(wx.Frame):
         keys = ['save_dicom', 'quit', 'in_browse', 'out_browse', 'add', 'delete', 'select_all', 'deselect_all',
                 'save_template', 'load_template']
         self.button = {key: wx.Button(self, wx.ID_ANY, key.replace('_', ' ').title()) for key in keys}
+        bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
+        self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp,  size=(bmp.GetWidth() + 10, bmp.GetHeight() + 10))
 
         columns = ['Tag', 'Description', 'Value', 'Value Type']
         data = {c: [''] for c in columns}
@@ -136,6 +138,7 @@ class MainFrame(wx.Frame):
         sizer_edit_widgets['add'].Add((5, 13), 0, wx.EXPAND, 0)  # Align Button
         sizer_edit_widgets['add'].Add(self.button['add'], 0, wx.EXPAND, 0)
         sizer_edit.Add(sizer_edit_widgets['add'], 0, wx.EXPAND | wx.ALL, 5)
+        sizer_edit.Add(self.button['search'], 0, wx.EXPAND | wx.ALL, 5)
         sizer_edit_wrapper.Add(sizer_edit, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_edit_wrapper.Add(self.label['value'], 0, wx.LEFT, 10)
@@ -174,12 +177,12 @@ class MainFrame(wx.Frame):
     @property
     def group(self):
         """Group of the DICOM tag"""
-        return self.input['tag_group'].GetValue().replace('(', '').replace(')', '').strip()
+        return self.input['tag_group'].GetValue()
 
     @property
     def element(self):
         """Element of the DICOM tag"""
-        return self.input['tag_element'].GetValue().replace('(', '').replace(')', '').strip()
+        return self.input['tag_element'].GetValue()
 
     @property
     def tag(self):
@@ -270,6 +273,9 @@ class MainFrame(wx.Frame):
         self.update_description()
         self.update_save_template_enable()
         self.update_save_dicom_enable()
+
+    def on_search(self, *evt):
+        TagSearchDialog(self)
 
     def on_delete(self, *evt):
         """Delecte the selected tag edits"""

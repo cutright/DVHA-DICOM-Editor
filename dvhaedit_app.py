@@ -10,7 +10,6 @@ Script to start DVHA DICOM Editor
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
-
 import dvhaedit.main
 
 if __name__ == "__main__":

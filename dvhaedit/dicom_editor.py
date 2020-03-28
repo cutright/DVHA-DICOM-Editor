@@ -10,8 +10,9 @@ Classes used to edit pydicom datasets
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
-
 import pydicom
+from pydicom.datadict import keyword_dict
+from dvhaedit.utilities import remove_non_alphanumeric
 
 
 class DICOMEditor:
@@ -109,4 +110,37 @@ class Tag:
         :return: processed string
         :rtype: str
         """
-        return string.replace('0x', '').strip().zfill(4)
+        return remove_non_alphanumeric(string).replace('0x', '').zfill(4).upper()
+
+
+class TagSearch:
+    """Class used to find partial tag keyword matches"""
+    def __init__(self):
+        self.keywords = list(keyword_dict)
+        self.lower_case_map = {key.lower(): key for key in self.keywords}
+
+    def __call__(self, search_str):
+        return self.get_table_data(search_str)
+
+    def get_keyword_matches(self, partial_keyword):
+        if partial_keyword:
+            partial_keyword = remove_non_alphanumeric(partial_keyword).lower()
+            return [self.lower_case_map[key] for key in self.lower_case_map if partial_keyword in key]
+        return ['']
+
+    @staticmethod
+    def keyword_to_tag(keyword):
+        tag = str(hex(keyword_dict.get(keyword)))
+        group = tag[0:-4]
+        element = tag[-4:]
+        return Tag(group, element)
+
+    def get_table_data(self, search_str):
+        columns = ['Keyword', 'Tag']
+        if search_str:
+            matches = sorted(self.get_keyword_matches(search_str))
+            tags = [self.keyword_to_tag(match) for match in matches]
+            data = {'Keyword': matches, 'Tag': tags}
+        else:
+            data = {'Keyword': [''], 'Tag': ['']}
+        return {'data': data, 'columns': columns}

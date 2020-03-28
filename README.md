@@ -21,7 +21,7 @@ dvhaedit
 ```
 If you've cloned the project, but did not run the setup.py installer, launch DVHA DICOM Editor with:
 ```
-python app.py
+python dvhaedit_app.py
 ```
 Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 

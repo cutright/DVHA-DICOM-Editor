@@ -10,10 +10,10 @@ General utilities borrowed from DVH Analytics
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVH-Analytics
 
-
 import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
+import re
 
 
 def get_file_paths(start_path, search_sub_folders=False, extension=None):
@@ -145,75 +145,14 @@ def load_csv_from_file(abs_file_path):
     return columns, data
 
 
-class ErrorDialog:
-    """This class allows error messages to be called with a one-liner else-where"""
-    def __init__(self, parent, message, caption, flags=wx.ICON_ERROR | wx.OK | wx.OK_DEFAULT):
-        """
-        :param parent: wx parent object
-        :param message: error message
-        :param caption: error title
-        :param flags: flags for wx.MessageDialog
-        """
-        self.dlg = wx.MessageDialog(parent, message, caption, flags)
-        self.dlg.Center()
-        self.dlg.ShowModal()
-        self.dlg.Destroy()
-
-
-class AskYesNo(wx.MessageDialog):
-    """Simple Yes/No MessageDialog"""
-    def __init__(self, parent, msg, caption="Are you sure?", flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT):
-        wx.MessageDialog.__init__(self, parent, msg, caption, flags)
-
-    @property
-    def run(self):
-        ans = self.ShowModal() == wx.YES
-        self.Destroy()
-        return ans
-
-
-class ViewErrorLog(wx.Dialog):
-    """Simple dialog to display the error log in a scrollable window"""
-    def __init__(self, error_log):
-        wx.Dialog.__init__(self, None, title='Error log')
-
-        self.error_log = error_log
-
-        scrolled_window = wx.ScrolledWindow(self, wx.ID_ANY)
-
-        text = "The following errors occurred while editing DICOM tags...\n\n%s" % error_log
-
-        sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
-        sizer_text = wx.BoxSizer(wx.VERTICAL)
-        sizer_buttons = wx.BoxSizer(wx.HORIZONTAL)
-
-        dismiss_button = wx.Button(self, wx.ID_OK, "Dismiss")
-        save_button = wx.Button(self, wx.ID_ANY, "Save")
-        self.Bind(wx.EVT_BUTTON, self.on_save, id=save_button.GetId())
-
-        scrolled_window.SetScrollRate(20, 20)
-
-        text = wx.StaticText(scrolled_window, wx.ID_ANY, text)
-        sizer_text.Add(text, 0, wx.EXPAND | wx.ALL, 5)
-        scrolled_window.SetSizer(sizer_text)
-        sizer_wrapper.Add(scrolled_window, 1, wx.EXPAND, 0)
-
-        sizer_buttons.Add(save_button, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
-        sizer_buttons.Add(dismiss_button, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
-        sizer_wrapper.Add(sizer_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
-
-        scrolled_window.SetBackgroundColour(wx.WHITE)
-
-        self.SetSizer(sizer_wrapper)
-        self.SetSize(get_window_size(0.4, 0.4))
-        self.Center()
-
-        self.ShowModal()
-        self.Destroy()
-
-    def on_save(self, *evt):
-        dlg = wx.FileDialog(self, "Save error log", "", wildcard='*.txt',
-                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
-        if dlg.ShowModal() == wx.ID_OK:
-            save_csv_to_file(self.error_log, dlg.GetPath())
-        dlg.Destroy()
+def remove_non_alphanumeric(some_string):
+    """
+    Remove non-alphanumeric characters from a string
+    https://stackoverflow.com/questions/1276764/stripping-everything-but-alphanumeric-chars-from-a-string-in-python
+    Accessed: Mar 27, 2020
+    :param some_string: any string
+    :type some_string: str
+    :return: the provided string less any non-alphanumeric characters
+    """
+    pattern = re.compile(r'[\W_]+')
+    return pattern.sub('', some_string).replace('_', '')
