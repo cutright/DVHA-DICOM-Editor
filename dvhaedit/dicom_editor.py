@@ -106,8 +106,15 @@ class Tag:
 
     @property
     def tag_as_int(self):
+        if self.has_x:
+            return None
         string = "0x%s%s" % (self.group, self.element)
         return int(string, 16)
+
+    @property
+    def has_x(self):
+        """Some retired Tags from pydicom.datadict may have an x placeholder"""
+        return 'X' in self.group or 'X' in self.element
 
     @staticmethod
     def process_string(string):
@@ -118,11 +125,13 @@ class Tag:
         :return: processed string
         :rtype: str
         """
-        return remove_non_alphanumeric(string).replace('0x', '').zfill(4).upper()
+        if string.startswith('0x'):
+            string = string[2:]
+        return remove_non_alphanumeric(string).zfill(4).upper()
 
     @property
     def VR(self):
-        if int(self.group + self.element):
+        if not self.has_x and int(self.group + self.element):
             try:
                 return get_entry(self.tag_as_int)[0]
             except KeyError:
@@ -152,9 +161,15 @@ class TagSearch:
         element = tag[-4:]
         return Tag(group, element)
 
+    def get_entry(self, tag_as_int):
+        if tag_as_int is not None:
+            return get_entry(tag_as_int)[0]
+        return 'Unknown'
+
     def get_table_data(self, search_str):
-        columns = ['Keyword', 'Tag']
-        matches = sorted(self.get_keyword_matches(search_str))
+        columns = ['Keyword', 'Tag', 'VR']
+        matches = sorted([m for m in self.get_keyword_matches(search_str)])
         tags = [self.keyword_to_tag(match) for match in matches]
-        data = {'Keyword': matches, 'Tag': tags}
+        value_reps = [self.get_entry(tag.tag_as_int) for tag in tags]
+        data = {'Keyword': matches, 'Tag': tags, 'VR': value_reps}
         return {'data': data, 'columns': columns}

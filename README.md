@@ -3,6 +3,7 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
 * No admin rights needed
 * Executables provided, which require no installation  
 * Create templates for routine tag editing
+* Search for DICOM tags by keyword
 
 <a href="https://pypi.org/project/dvha-edit/">
         <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>

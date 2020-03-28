@@ -126,10 +126,10 @@ class TagSearchDialog(wx.Dialog):
         self.note = wx.StaticText(self, wx.ID_ANY, "NOTE: The loaded DICOM file(s) may not have the selected tag.")
 
         # Create table for search results
-        columns = ['Keyword', 'Tag']
+        columns = ['Keyword', 'Tag', 'VR']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2, -2])
+        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2, -2, -2])
 
         # Create buttons
         keys = {'select': wx.ID_OK, 'cancel': wx.ID_CANCEL}
