@@ -31,7 +31,7 @@ Dynamic Value Setting
 ---------
 Dynamic values are denoted by encapsulating asterisks.
 
-Currently, the only function available is `dir` for directory. If `*dir[n]*` is in your value will, it will be 
+Currently, the only function available is `dir`. If `*dir[n]*` is in your value, it will be 
 replaced with the n<sup>th</sup> component of the file path for the file being edited.
 
 For example, for a file `/some/file/path/your_file.dcm`:
