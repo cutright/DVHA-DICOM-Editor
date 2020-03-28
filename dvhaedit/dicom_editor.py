@@ -12,7 +12,8 @@ Classes used to edit pydicom datasets
 
 import pydicom
 from pydicom.datadict import keyword_dict, get_entry
-from dvhaedit.utilities import remove_non_alphanumeric
+from pydicom._dicom_dict import DicomDictionary
+from dvhaedit.utilities import remove_non_alphanumeric, get_sorted_indices
 
 
 keyword_dict.pop('')  # remove the empty keyword
@@ -154,6 +155,15 @@ class TagSearch:
             return [self.lower_case_map[key] for key in self.lower_case_map if partial_keyword in key]
         return self.keywords
 
+    def get_matches(self, partial_keyword):
+        if partial_keyword:
+            partial_keyword = remove_non_alphanumeric(partial_keyword).lower()
+            return {tag: entry for tag, entry in DicomDictionary.items()
+                    if partial_keyword in entry[4].lower() or
+                    partial_keyword in remove_non_alphanumeric(str(self.int_to_tag(tag)))}
+        else:
+            return DicomDictionary
+
     @staticmethod
     def keyword_to_tag(keyword):
         tag = str(hex(keyword_dict.get(keyword)))
@@ -161,15 +171,33 @@ class TagSearch:
         element = tag[-4:]
         return Tag(group, element)
 
-    def get_entry(self, tag_as_int):
+    @staticmethod
+    def hex_to_tag(tag_as_hex):
+        tag = str(tag_as_hex).zfill(8)
+        group = tag[0:-4]
+        element = tag[-4:]
+        return Tag(group, element)
+
+    def int_to_tag(self, tag_as_int):
+        return self.hex_to_tag(str(hex(tag_as_int))[2:])
+
+    @staticmethod
+    def get_value_rep(tag_as_int):
         if tag_as_int is not None:
             return get_entry(tag_as_int)[0]
         return 'Unknown'
 
     def get_table_data(self, search_str):
         columns = ['Keyword', 'Tag', 'VR']
-        matches = sorted([m for m in self.get_keyword_matches(search_str)])
-        tags = [self.keyword_to_tag(match) for match in matches]
-        value_reps = [self.get_entry(tag.tag_as_int) for tag in tags]
-        data = {'Keyword': matches, 'Tag': tags, 'VR': value_reps}
+
+        data = [(en[4], self.int_to_tag(tg), en[0]) for tg, en in self.get_matches(search_str).items() if en[4]]
+
+        keywords = [row[0] for row in data]
+        sorted_indices = get_sorted_indices(keywords)
+
+        keywords = [data[i][0] for i in sorted_indices]
+        tags = [data[i][1] for i in sorted_indices]
+        value_reps = [data[i][2] for i in sorted_indices]
+
+        data = {'Keyword': keywords, 'Tag': tags, 'VR': value_reps}
         return {'data': data, 'columns': columns}
