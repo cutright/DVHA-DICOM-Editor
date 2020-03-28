@@ -4,6 +4,7 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
 * Executables provided, which require no installation  
 * Create templates for routine tag editing
 * Search for DICOM tags by keyword
+* Dynamically define new DICOM tag values
 
 <a href="https://pypi.org/project/dvha-edit/">
         <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>
@@ -34,7 +35,7 @@ Currently, the only function available is `dir` for directory. If `*dir[n]*` is 
 replaced with the n<sup>th</sup> component of the file path for the file being edited.
 
 For example, for a file `/some/file/path/your_file.dcm`:
-* `some_string_*dir[-1]` -->  `some_string_your_file`
+* `some_string_*dir[-1]*` -->  `some_string_your_file`
 * `*dir[-2]*_AnotherString` --> `path_AnotherString`
 
 
