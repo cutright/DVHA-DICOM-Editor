@@ -49,7 +49,7 @@ class MainFrame(wx.Frame):
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'selected_file',
-                'modality', 'prepend_file_name', 'add', 'search']
+                'modality', 'prepend_file_name', 'add', 'search', 'value_rep']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
         self.file_paths = []
@@ -73,6 +73,7 @@ class MainFrame(wx.Frame):
 
         self.label['add'].SetLabel(' ')
         self.label['search'].SetLabel(' ')
+        self.label['value_rep'].SetLabel('Value Representation (VR): ')
 
         self.button['search'].SetToolTip("Search for DICOM tag based on keyword.")
 
@@ -149,7 +150,8 @@ class MainFrame(wx.Frame):
 
         sizer_edit_wrapper.Add(self.label['value'], 0, wx.LEFT, 10)
         sizer_edit_wrapper.Add(self.input['value'], 0, wx.EXPAND | wx.LEFT, 10)
-        sizer_edit_wrapper.Add(self.label['description'], 0, wx.TOP | wx.LEFT | wx.BOTTOM, 10)
+        sizer_edit_wrapper.Add(self.label['description'], 0, wx.TOP | wx.LEFT, 10)
+        sizer_edit_wrapper.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 10)
 
         sizer_edit_wrapper.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 10)
         for key in ['delete', 'select_all', 'deselect_all', 'save_template', 'load_template']:
@@ -495,6 +497,7 @@ class MainFrame(wx.Frame):
         description = self.description if self.group and self.element else ''
         self.label['description'].SetLabel("Description: %s" % description)
         self.update_tag_type()
+        self.update_vr()
 
     def update_tag_type(self):
         """Update tag type in the Tag Editor based on the current Tag and currently selected file"""
@@ -507,6 +510,9 @@ class MainFrame(wx.Frame):
             except Exception:
                 pass
         self.input['value_type'].SetValue(tag_type)
+
+    def update_vr(self):
+        self.label['value_rep'].SetLabel("Value Representation (VR): %s" % self.tag.VR)
 
     #################################################################################
     # Data updaters

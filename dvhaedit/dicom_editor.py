@@ -11,7 +11,7 @@ Classes used to edit pydicom datasets
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 import pydicom
-from pydicom.datadict import keyword_dict
+from pydicom.datadict import keyword_dict, get_entry
 from dvhaedit.utilities import remove_non_alphanumeric
 
 
@@ -104,6 +104,11 @@ class Tag:
         """Get keyword/tag suitable for pydicom"""
         return tuple(['0x%s' % v for v in [self.group, self.element]])
 
+    @property
+    def tag_as_int(self):
+        string = "0x%s%s" % (self.group, self.element)
+        return int(string, 16)
+
     @staticmethod
     def process_string(string):
         """
@@ -114,6 +119,15 @@ class Tag:
         :rtype: str
         """
         return remove_non_alphanumeric(string).replace('0x', '').zfill(4).upper()
+
+    @property
+    def VR(self):
+        if int(self.group + self.element):
+            try:
+                return get_entry(self.tag_as_int)[0]
+            except KeyError:
+                pass
+        return 'Not Found'
 
 
 class TagSearch:
