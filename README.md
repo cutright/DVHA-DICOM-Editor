@@ -32,12 +32,12 @@ Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releas
 
 Dynamic Value Setting
 ---------
-Dynamic values are denoted by encapsulating asterisks.
+Dynamic values are denoted by asterisk-pairs.
 
 Currently, the only function available is `dir`. If `*dir[n]*` is in your value, it will be 
 replaced with the n<sup>th</sup> component of the file path for the file being edited.
 
-For example, for a file `/some/file/path/your_file.dcm`:
+Some examples, each with a file `/some/file/path/your_file.dcm`:
 * `some_string_*dir[-1]*` -->  `some_string_your_file`
 * `*dir[-2]*_AnotherString` --> `path_AnotherString`
 
