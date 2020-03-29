@@ -1,4 +1,5 @@
-<img src='https://user-images.githubusercontent.com/4778878/77683755-e0f94000-6f66-11ea-958c-a94c5c895266.png' align='right' width='350' alt="DVHA DICOM Editor screenshot">
+<img src='https://user-images.githubusercontent.com/4778878/77683755-e0f94000-6f66-11ea-958c-a94c5c895266.png' align='right' width='400' alt="DVH Analytics screenshot">  
+
 # DVHA DICOM Editor
 Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoenix) and [pydicom](https://github.com/pydicom/pydicom)  
 * No admin rights needed
@@ -11,6 +12,7 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
         <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>
 <a href="https://lgtm.com/projects/g/cutright/DVHA-DICOM-Editor/context:python">
         <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality" /></a>
+
 
 Installation
 ---------
