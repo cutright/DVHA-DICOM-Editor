@@ -556,7 +556,7 @@ class MainFrame(wx.Frame):
         self.input['value_type'].SetValue(tag_type)
 
     def update_vr(self):
-        self.label['value_rep'].SetLabel("Value Representation (VR): %s" % self.tag.VR)
+        self.label['value_rep'].SetLabel("Value Representation (VR): %s" % self.tag.vr)
 
     #################################################################################
     # Data updaters
@@ -637,9 +637,8 @@ class MainFrame(wx.Frame):
 
             value_str = row_data[2]
             value_type = get_type(row_data[3])
-            # value = value_type(value_str)
-            value_gen = ValueGenerator(value_str)
-            values_dict = value_gen(list(self.ds))
+            value_gen = ValueGenerator(value_str, tag.tag)
+            values_dict = value_gen(self.ds)
 
             for file_path, ds in self.ds.items():
 
@@ -647,7 +646,6 @@ class MainFrame(wx.Frame):
                     value = value_type(values_dict[file_path])
                     ds.edit_tag(tag.tag, value)
                 except Exception as e:
-                    # value = value if value else '[empty value]'
                     value = value_str if value_str else '[empty value]'
                     error_log.append("Directory: %s\nFile: %s\n\tAttempt to edit %s to new value: %s\n\t%s\n" %
                                      (dirname(file_path), basename(file_path), str(tag), value, str(e)))

@@ -15,19 +15,27 @@ from os.path import normpath, splitext
 
 
 class ValueGenerator:
-    def __init__(self, value):
+    def __init__(self, value, tag):
         self.value = value
-        self.enum_instances = {}
+        self.tag = tag
+        self.fenum_instances = {}
+        self.venum_instances = {}
+        self.datasets = {}
+        self.file_paths = []
 
         self.__set_func_call_dict()
 
         self.func_map = {'dir': self.dir,
-                         'enum': self.enum}
+                         'fenum': self.fenum,
+                         'venum': self.venum}
 
-    def __call__(self, file_paths):
-        self.set_enum_instances(file_paths)
+    def __call__(self, datasets):
+        self.file_paths = sorted(list(datasets))
+        self.datasets = [datasets[f] for f in self.file_paths]
+        self.set_fenum_instances()
+        self.set_venum_instances()
         new_values = {}
-        for file_path in file_paths:
+        for file_path in self.file_paths:
             new_value = self.value.split('*')
             for i, call_str in enumerate(self.value.split('*')):
                 if i % 2 == 1:
@@ -66,20 +74,29 @@ class ValueGenerator:
                 return splitext('/'.join(components[:index+1]))[0]
         return splitext(components[index])[0]
 
-    def set_enum_instances(self, file_paths):
-        self.enum_instances = {}
-        for index in self.enum_param:
-            enum = [self.dir(index, f, True) for f in file_paths]
-            self.enum_instances[index] = sorted(list(set(enum)))
+    def set_fenum_instances(self):
+        self.fenum_instances = {}
+        for index in self.parameters('fenum'):
+            fenum = [self.dir(index, f, True) for f in self.file_paths]
+            self.fenum_instances[index] = sorted(list(set(fenum)))
 
-    def enum(self, index, file_path):
-        return str(self.enum_instances[index].index(self.dir(index, file_path, True))+1)
+    def fenum(self, index, file_path):
+        return str(self.fenum_instances[index].index(self.dir(index, file_path, True)) + 1)
 
-    @property
-    def enum_param(self):
+    def parameters(self, function):
         parameters = []
         for call_str in self.value.split('*')[1::2]:  # every odd index
             func, param = self.split_call_str(call_str)
-            if func == 'enum':
+            if func == function:
                 parameters.append(param)
         return parameters
+
+    def set_venum_instances(self):
+        self.venum_instances = {}
+        for index in self.parameters('venum'):
+            venum = [ds.get_tag_value(self.tag) for ds in self.datasets]
+            self.venum_instances[index] = sorted(list(set(venum)))
+
+    def venum(self, index, file_path):
+        ds = self.datasets[self.file_paths.index(file_path)]
+        return str(self.venum_instances[index].index(ds.get_tag_value(self.tag)) + 1)

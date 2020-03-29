@@ -131,7 +131,7 @@ class Tag:
         return remove_non_alphanumeric(string).zfill(4).upper()
 
     @property
-    def VR(self):
+    def vr(self):
         if not self.has_x and self.group and self.element:
             try:
                 return get_entry(self.tag_as_int)[0]

@@ -36,23 +36,34 @@ Dynamic values are denoted by encapsulating asterisks.
 
 Available functions:
 * `dir[n]`: insert the n<sup>th</sup> component of the file path
-* `enum[n]`: insert an iterator based on the  n<sup>th</sup> component of the file path
+* `fenum[n]`: insert an iterator based on the  n<sup>th</sup> component of the file path
+* `venum[n]`: insert an iterator based on the tag value, n=-1 being tag value, n=-2 the parent value, etc. 
+(NOTE: only n=-1 is currently supported)
 
-Examples, for a dir `/home/any_dir_name/` containing files `file_1.dcm`, `file_2.dcm`:
-* Directory:
+### Examples
+For a directory `/home/ANON0001/` containing files `file_1.dcm`, `file_2.dcm`. For the value enumeration example, 
+assume each file as the same StudyInstanceUID but different SOPInstanceUIDs.
+* *Directory*:
     * `some_string_*dir[-1]*`
         * some_string_file_1.dcm
         * some_string_file_2.dcm
     * `*dir[-2]*_AnotherString`
-        * any_dir_name_AnotherString
-        * any_dir_name_AnotherString
-* Enumeration:
-    * `some_string_*enum[-1]*`
+        * ANON0001_AnotherString
+        * ANON0001_AnotherString
+* *File Enumeration*:
+    * `some_string_*fenum[-1]*`
         * some_string_1
         * some_string_2
-    * `*enum[-2]*_AnotherString`
+    * `*fenum[-2]*_AnotherString`
         * 1_AnotherString
         * 1_AnotherString
+* *Value Enumeration*:
+    * `*dir[-2]*_*venum[-1]*` used with SOPInstanceUID tag
+        * ANON0001_1
+        * ANON0001_2
+    * `*dir[-2]*_*venum[-1]*` used with StudyInstanceUID tag
+        * ANON0001_1
+        * ANON0001_1
 
 
 This feature is still in development. Check back soon for more features.
