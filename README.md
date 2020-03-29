@@ -32,7 +32,7 @@ Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releas
 
 Dynamic Value Setting
 ---------
-Dynamic values are denoted by encapsulating asterisks.
+Users can dynamically define DICOM tag values with one of the functions below, which are denoted by asterisk-pairs.
 
 Available functions:
 * `dir[n]`: insert the n<sup>th</sup> component of the file path
@@ -41,12 +41,12 @@ Available functions:
 (NOTE: only n=-1 is currently supported)
 
 ### Examples
-For a directory `/home/ANON0001/` containing files `file_1.dcm`, `file_2.dcm`. For the value enumeration example, 
-assume each file as the same StudyInstanceUID but different SOPInstanceUIDs.
+For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file_2.dcm`:
 * *Directory*:
+    * NOTE: file extensions are removed
     * `some_string_*dir[-1]*`
-        * some_string_file_1.dcm
-        * some_string_file_2.dcm
+        * some_string_file_1
+        * some_string_file_2
     * `*dir[-2]*_AnotherString`
         * ANON0001_AnotherString
         * ANON0001_AnotherString
@@ -58,6 +58,7 @@ assume each file as the same StudyInstanceUID but different SOPInstanceUIDs.
         * 1_AnotherString
         * 1_AnotherString
 * *Value Enumeration*:
+    * NOTE: Assume each file has the same StudyInstanceUID but different SOPInstanceUIDs
     * `*dir[-2]*_*venum[-1]*` used with SOPInstanceUID tag
         * ANON0001_1
         * ANON0001_2
