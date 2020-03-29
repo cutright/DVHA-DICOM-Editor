@@ -13,9 +13,11 @@ The main file for DVHA DICOM Editor
 import wx
 from os import sep
 from os.path import isdir, basename, join, dirname, normpath, splitext
+import webbrowser
 from dvhaedit.data_table import DataTable
-from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog
+from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About
 from dvhaedit.dicom_editor import DICOMEditor, Tag
+from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
     save_csv_to_file, load_csv_from_file
 
@@ -59,6 +61,7 @@ class MainFrame(wx.Frame):
         self.directory = {'in': '', 'out': ''}
         
         self.__set_properties()
+        self.__add_menubar()
         self.__do_bind()
         self.__do_layout()
     
@@ -93,6 +96,33 @@ class MainFrame(wx.Frame):
 
         self.input['value_type'].SetItems(['str', 'float', 'int'])
         self.input['value_type'].SetValue('str')
+
+    def __add_menubar(self):
+
+        self.frame_menubar = wx.MenuBar()
+
+        file_menu = wx.Menu()
+        menu_open = file_menu.Append(wx.ID_OPEN, '&Open\tCtrl+O')
+        self.menu_save = file_menu.Append(wx.ID_ANY, '&Save\tCtrl+S')
+        self.menu_save.Enable(False)
+
+        qmi = file_menu.Append(wx.ID_ANY, '&Quit\tCtrl+Q')
+
+        help_menu = wx.Menu()
+        menu_github = help_menu.Append(wx.ID_ANY, 'GitHub Page')
+        menu_report_issue = help_menu.Append(wx.ID_ANY, 'Report an Issue')
+        menu_about = help_menu.Append(wx.ID_ANY, '&About')
+
+        self.Bind(wx.EVT_MENU, self.on_quit, qmi)
+        self.Bind(wx.EVT_MENU, self.on_load_template, menu_open)
+        self.Bind(wx.EVT_MENU, self.on_save_template, self.menu_save)
+        self.Bind(wx.EVT_MENU, self.on_githubpage, menu_github)
+        self.Bind(wx.EVT_MENU, self.on_report_issue, menu_report_issue)
+        self.Bind(wx.EVT_MENU, self.on_about, menu_about)
+
+        self.frame_menubar.Append(file_menu, '&File')
+        self.frame_menubar.Append(help_menu, '&Help')
+        self.SetMenuBar(self.frame_menubar)
     
     def __do_bind(self):
         """Bind user events to widgets with actions"""
@@ -110,7 +140,7 @@ class MainFrame(wx.Frame):
             self.input[key].Bind(wx.EVT_KEY_DOWN, self.on_key_down_dir)
             self.input[key].Bind(wx.EVT_TEXT, self.update_dir_obj_text_color)
 
-        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.update_delete_enable, id=self.list_ctrl.GetId())
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_selection, id=self.list_ctrl.GetId())
 
     def __do_layout(self):
         """Create GUI layout"""
@@ -304,6 +334,17 @@ class MainFrame(wx.Frame):
         self.data_table.apply_selection_to_all(False)
         self.button['delete'].Disable()
 
+    def on_selection(self, *evt):
+        self.update_delete_enable()
+        selected_data = self.data_table.selected_row_data
+        if selected_data:
+            tag = selected_data[0][0][1:-1].split(',')
+            group = tag[0].strip()
+            element = tag[1].strip()
+            self.input['tag_group'].SetValue(group)
+            self.input['tag_element'].SetValue(element)
+            self.input['value_type'].SetValue(selected_data[0][3])
+
     def on_save_template(self, *evt):
         """Save the current tag edits to a CSV"""
         dlg = wx.FileDialog(self, "Save template", "", wildcard='*.csv',
@@ -448,7 +489,9 @@ class MainFrame(wx.Frame):
 
     def update_save_template_enable(self):
         """Only enable save button if the ListCtrl has data"""
-        self.button['save_template'].Enable(self.data_table_has_data)
+        enable = self.data_table_has_data
+        self.button['save_template'].Enable(enable)
+        self.menu_save.Enable(enable)
 
     #################################################################################
     # Widget updaters
@@ -568,7 +611,7 @@ class MainFrame(wx.Frame):
             index_temp = value_split[n*2 + 1].split('dir[')[1]
             index_temp_end = index_temp.index(']')
             try:
-                return int(index_temp[:index_temp_end])
+                return index_temp[:index_temp_end]
             except TypeError:
                 pass
 
@@ -585,22 +628,27 @@ class MainFrame(wx.Frame):
     def apply_edits(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
         error_log = []
-        for file_path, ds in self.ds.items():
-            for row in range(self.data_table.row_count):
-                row_data = self.data_table.get_row(row)
-                group = row_data[0].split(',')[0][1:].strip()
-                element = row_data[0].split(',')[1][:-1].strip()
-                tag = Tag(group, element)
+        for row in range(self.data_table.row_count):
 
-                value_str = row_data[2]
-                value_type = get_type(row_data[3])
-                value = value_type(value_str)
+            row_data = self.data_table.get_row(row)
+            group = row_data[0].split(',')[0][1:].strip()
+            element = row_data[0].split(',')[1][:-1].strip()
+            tag = Tag(group, element)
+
+            value_str = row_data[2]
+            value_type = get_type(row_data[3])
+            # value = value_type(value_str)
+            value_gen = ValueGenerator(value_str)
+            values_dict = value_gen(list(self.ds))
+
+            for file_path, ds in self.ds.items():
 
                 try:
-                    value = self.apply_dir_to_value(value, file_path)
+                    value = value_type(values_dict[file_path])
                     ds.edit_tag(tag.tag, value)
                 except Exception as e:
-                    value = value if value else '[empty value]'
+                    # value = value if value else '[empty value]'
+                    value = value_str if value_str else '[empty value]'
                     error_log.append("Directory: %s\nFile: %s\n\tAttempt to edit %s to new value: %s\n\t%s\n" %
                                      (dirname(file_path), basename(file_path), str(tag), value, str(e)))
 
@@ -631,6 +679,18 @@ class MainFrame(wx.Frame):
 
         if overwrite_check_only:
             return False
+
+    @staticmethod
+    def on_about(*evt):
+        About(VERSION)
+
+    @staticmethod
+    def on_githubpage(evt):
+        webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor")
+
+    @staticmethod
+    def on_report_issue(evt):
+        webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor/issues")
 
 
 class MainApp(wx.App):

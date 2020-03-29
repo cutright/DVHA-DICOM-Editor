@@ -1,3 +1,5 @@
+<img src='https://user-images.githubusercontent.com/4778878/77683755-e0f94000-6f66-11ea-958c-a94c5c895266.png' align='right' width='400' alt="DVH Analytics screenshot">  
+
 # DVHA DICOM Editor
 Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoenix) and [pydicom](https://github.com/pydicom/pydicom)  
 * No admin rights needed
@@ -10,6 +12,7 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
         <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>
 <a href="https://lgtm.com/projects/g/cutright/DVHA-DICOM-Editor/context:python">
         <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality" /></a>
+
 
 Installation
 ---------
@@ -31,16 +34,25 @@ Dynamic Value Setting
 ---------
 Dynamic values are denoted by encapsulating asterisks.
 
-Currently, the only function available is `dir`. If `*dir[n]*` is in your value, it will be 
-replaced with the n<sup>th</sup> component of the file path for the file being edited.
+Available functions:
+* `dir[n]`: insert the n<sup>th</sup> component of the file path
+* `enum[n]`: insert an iterator based on the  n<sup>th</sup> component of the file path
 
-For example, for a file `/some/file/path/your_file.dcm`:
-* `some_string_*dir[-1]*` -->  `some_string_your_file`
-* `*dir[-2]*_AnotherString` --> `path_AnotherString`
+Examples, for a dir `/home/any_dir_name/` containing files `file_1.dcm`, `file_2.dcm`:
+* Directory:
+    * `some_string_*dir[-1]*`
+        * some_string_file_1.dcm
+        * some_string_file_2.dcm
+    * `*dir[-2]*_AnotherString`
+        * any_dir_name_AnotherString
+        * any_dir_name_AnotherString
+* Enumeration:
+    * `some_string_*enum[-1]*`
+        * some_string_1
+        * some_string_2
+    * `*enum[-2]*_AnotherString`
+        * 1_AnotherString
+        * 1_AnotherString
 
 
 This feature is still in development. Check back soon for more features.
-
-Screenshot
----------
-<img src='https://user-images.githubusercontent.com/4778878/77683755-e0f94000-6f66-11ea-958c-a94c5c895266.png' align='center' width='400' alt="DVH Analytics screenshot">

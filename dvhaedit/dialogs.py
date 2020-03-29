@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# dicom_editor.py
+# dialogs.py
 """
 Classes used to edit pydicom datasets
 """
@@ -13,6 +13,7 @@ Classes used to edit pydicom datasets
 import wx
 from dvhaedit.data_table import DataTable
 from dvhaedit.dicom_editor import TagSearch
+from dvhaedit.paths import LICENSE_PATH
 from dvhaedit.utilities import save_csv_to_file, get_window_size
 
 
@@ -207,3 +208,35 @@ class TagSearchDialog(wx.Dialog):
         """Treat double-click the same as selecting a row then clicking Select"""
         self.set_tag_to_selection()
         self.Close()
+
+
+class About(wx.Dialog):
+    """Simple dialog to display the LICENSE file and a brief text header in a scrollable window"""
+    def __init__(self, version):
+        wx.Dialog.__init__(self, None, title='About DVHA DICOM Editor')
+
+        scrolled_window = wx.ScrolledWindow(self, wx.ID_ANY)
+
+        with open(LICENSE_PATH, 'r', encoding="utf8") as license_file:
+            license_text = ''.join([line for line in license_file])
+
+        license_text = "DVHA DICOM Editor v%s\nedit.dvhanalytics.com\n\n%s" % (version, license_text)
+
+        sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
+        sizer_text = wx.BoxSizer(wx.VERTICAL)
+
+        scrolled_window.SetScrollRate(20, 20)
+
+        license_text = wx.StaticText(scrolled_window, wx.ID_ANY, license_text)
+        sizer_text.Add(license_text, 0, wx.EXPAND | wx.ALL, 5)
+        scrolled_window.SetSizer(sizer_text)
+        sizer_wrapper.Add(scrolled_window, 1, wx.EXPAND, 0)
+
+        self.SetBackgroundColour(wx.WHITE)
+
+        self.SetSizer(sizer_wrapper)
+        self.SetSize((750, 900))
+        self.Center()
+
+        self.ShowModal()
+        self.Destroy()
