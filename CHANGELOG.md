@@ -7,6 +7,7 @@ v0.3 (TBD)
  - Search for DICOM tags
  - Values can be dynamically defined based on file_path or current tag values
  - Thread file parsing with progress bar
+ - Ability to search sub folders
  
  
 v0.2 (2020.03.27)

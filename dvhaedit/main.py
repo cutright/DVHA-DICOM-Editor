@@ -12,7 +12,8 @@ The main file for DVHA DICOM Editor
 
 import wx
 from os import sep
-from os.path import isdir, basename, join, dirname, normpath, splitext
+from os.path import isdir, basename, join, dirname, normpath, splitext, relpath
+from pathlib import Path
 from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
@@ -58,6 +59,11 @@ class MainFrame(wx.Frame):
                 'modality', 'prepend_file_name', 'add', 'search', 'value_rep']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
+        self.search_sub_folders = wx.CheckBox(self, wx.ID_ANY, "Search Sub-Folders")
+        self.search_sub_folders_last_status = False
+
+        self.retain_rel_dir = wx.CheckBox(self, wx.ID_ANY, "Retain relative directory structure")
+
         self.file_paths = []
         self.update_files_found()
         self.refresh_needed = False
@@ -73,6 +79,11 @@ class MainFrame(wx.Frame):
     def __set_properties(self):
         """Set initial properties of widgets"""
         set_msw_background_color(self)
+
+        for checkbox in [self.search_sub_folders, self.retain_rel_dir]:
+            checkbox.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, 0, ""))
+        self.retain_rel_dir.SetToolTip("If unchecked, all new files will be placed in the output directory. "
+                                       "Otherwise, the same relative directory structure will be used.")
 
         self.button['in_browse'].SetLabel(u"Browse…")
         self.button['out_browse'].SetLabel(u"Browse…")
@@ -171,10 +182,11 @@ class MainFrame(wx.Frame):
         sizer_edit = wx.BoxSizer(wx.HORIZONTAL)
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
                               for key in ['tag_group', 'tag_element', 'value', 'value_type', 'add', 'search']}
+        sizer_value_description = wx.BoxSizer(wx.VERTICAL)
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.HORIZONTAL)
         sizer_output_dir_inner_wrapper = wx.BoxSizer(wx.VERTICAL)
-        sizer_output_dir = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_output_dir = wx.BoxSizer(wx.VERTICAL)
         sizer_output_dir_prepend = wx.BoxSizer(wx.HORIZONTAL)
         sizer_app_buttons = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -182,6 +194,7 @@ class MainFrame(wx.Frame):
         sizer_input_dir.Add(self.input['in_dir'], 1, wx.EXPAND | wx.ALL, 5)
         sizer_input_dir.Add(self.button['in_browse'], 0, wx.ALL, 5)
         sizer_input_dir_wrapper.Add(sizer_input_dir, 0, wx.ALL | wx.EXPAND, 5)
+        sizer_input_dir_wrapper.Add(self.search_sub_folders, 0, wx.LEFT | wx.BOTTOM, 10)
         sizer_input_file.Add(self.label['files_found'], 0, wx.ALL, 5)
         sizer_input_file.Add(self.label['selected_file'], 0, wx.LEFT | wx.TOP, 5)
         sizer_input_file.Add(self.input['selected_file'], 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
@@ -192,15 +205,17 @@ class MainFrame(wx.Frame):
         # Input Widgets
         for key in ['search', 'tag_group', 'tag_element', 'value_type', 'add']:
             obj = self.button if key in {'search', 'add'} else self.input
-            sizer_edit_widgets[key].Add(self.label[key], 0, 0, 0)
+            sizer_edit_widgets[key].Add(self.label[key], 0, wx.EXPAND, 0)
             sizer_edit_widgets[key].Add(obj[key], 0, wx.EXPAND, 0)
-            sizer_edit.Add(sizer_edit_widgets[key], 0, wx.EXPAND | wx.ALL, 5)
+            proportion = 'tag' in key
+            sizer_edit.Add(sizer_edit_widgets[key], proportion, wx.EXPAND | wx.ALL, 5)
         sizer_edit_wrapper.Add(sizer_edit, 0, wx.EXPAND | wx.ALL, 5)
 
-        sizer_edit_wrapper.Add(self.label['value'], 0, wx.LEFT, 10)
-        sizer_edit_wrapper.Add(self.input['value'], 0, wx.EXPAND | wx.LEFT, 10)
-        sizer_edit_wrapper.Add(self.label['description'], 0, wx.TOP | wx.LEFT, 10)
-        sizer_edit_wrapper.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 10)
+        sizer_value_description.Add(self.label['value'], 0, wx.LEFT, 5)
+        sizer_value_description.Add(self.input['value'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+        sizer_value_description.Add(self.label['description'], 0, wx.TOP | wx.LEFT, 5)
+        sizer_value_description.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 5)
+        sizer_edit_wrapper.Add(sizer_value_description, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_edit_wrapper.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 10)
         for key in ['delete', 'select_all', 'deselect_all', 'save_template', 'load_template']:
@@ -211,6 +226,7 @@ class MainFrame(wx.Frame):
 
         # Output Directory Browser
         sizer_output_dir.Add(self.input['out_dir'], 1, wx.EXPAND | wx.ALL, 5)
+        sizer_output_dir.Add(self.retain_rel_dir, 0, wx.LEFT | wx.BOTTOM, 5)
         sizer_output_dir_inner_wrapper.Add(sizer_output_dir, 0, wx.ALL | wx.EXPAND, 5)
         sizer_output_dir_prepend.Add(self.label['prepend_file_name'], 0, wx.TOP | wx.LEFT | wx.RIGHT, 5)
         sizer_output_dir_prepend.Add(self.input['prepend_file_name'], 1, wx.EXPAND | wx.RIGHT, 5)
@@ -223,7 +239,7 @@ class MainFrame(wx.Frame):
         sizer_app_buttons.Add(self.button['quit'], 0, wx.ALL, 5)
         sizer_main.Add(sizer_app_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
 
-        sizer_wrapper.Add(sizer_main, 0, wx.EXPAND | wx.ALL, 5)
+        sizer_wrapper.Add(sizer_main, 1, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(sizer_wrapper)
         self.Fit()
@@ -318,11 +334,7 @@ class MainFrame(wx.Frame):
 
     def on_add(self, *evt):
         """Add a tag edit"""
-        try:
-            description = self.ds[self.file_paths[0]].get_tag_name(self.tag.tag)
-        except KeyError:
-            description = 'Unknown'
-        row = [str(self.tag), description, self.input['value'].GetValue(), self.input['value_type'].GetValue()]
+        row = [str(self.tag), self.description, self.input['value'].GetValue(), self.input['value_type'].GetValue()]
         if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
@@ -486,6 +498,7 @@ class MainFrame(wx.Frame):
     # Combobox Event tickers
     #################################################################################
     def on_file_select(self, *evt):
+        self.update_modality()
         self.update_init_value()
 
     #################################################################################
@@ -541,7 +554,7 @@ class MainFrame(wx.Frame):
 
     def update_combobox_files(self):
         """Update the combobox with the file names found in the current in directory"""
-        choices = [basename(f) for f in self.file_paths]
+        choices = [relpath(f, self.directory['in']) for f in self.file_paths]
         self.input['selected_file'].Enable()
         self.input['selected_file'].SetItems(choices)
         if choices:
@@ -590,7 +603,8 @@ class MainFrame(wx.Frame):
         """Get a list of all files in the currently specified in directory"""
         dir_path = self.input['in_dir'].GetValue()
         if isdir(dir_path):
-            self.file_paths = sorted(get_file_paths(dir_path))
+            self.search_sub_folders_last_status = self.search_sub_folders.GetValue()
+            self.file_paths = sorted(get_file_paths(dir_path, search_sub_folders=self.search_sub_folders.GetValue()))
         else:
             self.file_paths = []
         self.update_files_found()
@@ -646,7 +660,9 @@ class MainFrame(wx.Frame):
 
     @property
     def dir_contents_have_changed(self):
-        return sorted(get_file_paths(self.directory['in'])) != self.file_paths
+        current_files = sorted(get_file_paths(self.directory['in'],
+                                              search_sub_folders=self.search_sub_folders_last_status))
+        return current_files != self.file_paths
 
     def add_parsed_data(self, msg):
         self.ds[msg['obj']] = msg['data']
@@ -691,6 +707,7 @@ class MainFrame(wx.Frame):
         :rtype: bool
         """
         output_dir = self.input['out_dir'].GetValue()
+        input_dir = self.directory['in']
         prepend = self.input['prepend_file_name'].GetValue()
         for file_path, ds in self.ds.items():
             file_name = prepend + basename(file_path)
@@ -699,10 +716,15 @@ class MainFrame(wx.Frame):
                 if output_path in list(self.ds):
                     return True
             else:
+                if self.retain_rel_dir.GetValue():
+                    rel_out_path = join(output_dir, relpath(dirname(file_path), input_dir))
+                    Path(rel_out_path).mkdir(parents=True, exist_ok=True)
+                    output_path = join(rel_out_path, file_name)
                 ds.output_path = output_path
 
         if check_only:
             return False
+
 
     @staticmethod
     def on_about(*evt):
