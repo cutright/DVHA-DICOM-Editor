@@ -172,7 +172,8 @@ class MainFrame(wx.Frame):
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
                               for key in ['tag_group', 'tag_element', 'value', 'value_type', 'add', 'search']}
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.VERTICAL)
+        sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.HORIZONTAL)
+        sizer_output_dir_inner_wrapper = wx.BoxSizer(wx.VERTICAL)
         sizer_output_dir = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_prepend = wx.BoxSizer(wx.HORIZONTAL)
         sizer_app_buttons = wx.BoxSizer(wx.HORIZONTAL)
@@ -210,11 +211,12 @@ class MainFrame(wx.Frame):
 
         # Output Directory Browser
         sizer_output_dir.Add(self.input['out_dir'], 1, wx.EXPAND | wx.ALL, 5)
-        sizer_output_dir.Add(self.button['out_browse'], 0, wx.ALL, 5)
-        sizer_output_dir_wrapper.Add(sizer_output_dir, 0, wx.ALL | wx.EXPAND, 5)
+        sizer_output_dir_inner_wrapper.Add(sizer_output_dir, 0, wx.ALL | wx.EXPAND, 5)
         sizer_output_dir_prepend.Add(self.label['prepend_file_name'], 0, wx.TOP | wx.LEFT | wx.RIGHT, 5)
-        sizer_output_dir_prepend.Add(self.input['prepend_file_name'], 1, wx.EXPAND | wx.RIGHT, 110)
-        sizer_output_dir_wrapper.Add(sizer_output_dir_prepend, 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
+        sizer_output_dir_prepend.Add(self.input['prepend_file_name'], 1, wx.EXPAND | wx.RIGHT, 5)
+        sizer_output_dir_inner_wrapper.Add(sizer_output_dir_prepend, 0, wx.EXPAND | wx.LEFT | wx.BOTTOM | wx.RIGHT, 5)
+        sizer_output_dir_wrapper.Add(sizer_output_dir_inner_wrapper, 1, wx.EXPAND, 5)
+        sizer_output_dir_wrapper.Add(self.button['out_browse'], 0, wx.ALIGN_TOP | wx.TOP, 10)
         sizer_main.Add(sizer_output_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_app_buttons.Add(self.button['save_dicom'], 0, wx.ALL, 5)
