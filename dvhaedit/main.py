@@ -16,8 +16,8 @@ from os.path import isdir, basename, join, dirname, normpath, splitext
 from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
-from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About
-from dvhaedit.dicom_editor import Tag, ParsingProgressFrame
+from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About, ParsingProgressFrame
+from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
     save_csv_to_file, load_csv_from_file
@@ -643,7 +643,7 @@ class MainFrame(wx.Frame):
         return sorted(get_file_paths(self.directory['in'])) != self.file_paths
 
     def add_parsed_data(self, msg):
-        self.ds[msg['file_path']] = msg['data']
+        self.ds[msg['obj']] = msg['data']
 
     #################################################################################
     # Finally... run the DICOM editor and save DICOM files
