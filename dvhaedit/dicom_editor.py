@@ -10,9 +10,14 @@ Classes used to edit pydicom datasets
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
+import wx
 import pydicom
 from pydicom.datadict import keyword_dict, get_entry
 from pydicom._dicom_dict import DicomDictionary
+from pubsub import pub
+from queue import Queue
+from threading import Thread
+from time import sleep
 from dvhaedit.utilities import remove_non_alphanumeric, get_sorted_indices
 
 
@@ -201,3 +206,115 @@ class TagSearch:
 
         data = {'Keyword': keywords, 'Tag': tags, 'VR': value_reps}
         return {'data': data, 'columns': columns}
+
+
+class ParseWorker(Thread):
+    def __init__(self, file_paths):
+        Thread.__init__(self)
+
+        pub.sendMessage("parse_progress_set_title", msg='Parsing File Sets')
+
+        self.file_paths = file_paths
+        self.file_count = len(self.file_paths)
+
+        self.start()
+
+    def run(self):
+        queue = self.get_queue()
+        worker = Thread(target=self.do_parse, args=[queue])
+        worker.setDaemon(True)
+        worker.start()
+        queue.join()
+        sleep(0.3)  # Allow time for user to see final progress in GUI
+        pub.sendMessage('parse_progress_close')
+
+    def get_queue(self):
+        queue = Queue()
+        for i, file_path in enumerate(list(self.file_paths)):
+            msg = {'label': 'Parsing File %s of %s' % (i + 1, self.file_count),
+                   'gauge': i / self.file_count}
+            queue.put((file_path, msg))
+        return queue
+
+    def do_parse(self, queue):
+        while queue.qsize():
+            parameters = queue.get()
+            self.parser(*parameters)
+            queue.task_done()
+
+        plan_count = self.file_count
+        msg = {'label': 'Parsing Complete: %s file%s' % (plan_count, ['', 's'][plan_count != 1]),
+               'gauge': 1.}
+        pub.sendMessage("parse_progress_update", msg=msg)
+
+    @staticmethod
+    def parser(file_path, msg):
+        pub.sendMessage("parse_progress_update", msg=msg)
+        try:
+            msg = {'file_path': file_path, 'data': DICOMEditor(file_path)}
+            pub.sendMessage("add_parsed_data", msg=msg)
+        except Exception:
+            pass
+
+
+class ParsingProgressFrame(wx.Dialog):
+    """Create a window to display parsing progress and begin ParseWorker"""
+    def __init__(self, file_paths):
+        """
+        :param file_paths: absolute paths to parsing
+        :type file_paths: list
+        """
+        wx.Dialog.__init__(self, None)
+
+        self.file_paths = file_paths
+
+        self.gauge = wx.Gauge(self, wx.ID_ANY, 100)
+
+        self.__set_properties()
+        self.__do_subscribe()
+        self.__do_layout()
+
+        self.run()
+
+    def __set_properties(self):
+        self.SetTitle("Reading DICOM Headers")
+        self.SetMinSize((700, 100))
+
+    def pub_set_title(self, msg):
+        wx.CallAfter(self.SetTitle, msg)
+
+    def __do_subscribe(self):
+        pub.subscribe(self.update, "parse_progress_update")
+        pub.subscribe(self.pub_set_title, "parse_progress_set_title")
+        pub.subscribe(self.close, "parse_progress_close")
+
+    def __do_layout(self):
+        sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
+        sizer_objects = wx.BoxSizer(wx.VERTICAL)
+        self.label = wx.StaticText(self, wx.ID_ANY, "Progress Label:")
+        sizer_objects.Add(self.label, 0, 0, 0)
+        sizer_objects.Add(self.gauge, 0, wx.EXPAND, 0)
+        sizer_wrapper.Add(sizer_objects, 0, wx.ALL | wx.EXPAND, 10)
+        self.SetSizer(sizer_wrapper)
+        self.Fit()
+        self.Layout()
+        self.Center()
+
+    def update(self, msg):
+        """
+        Update the progress message and gauge
+        :param msg: a dictionary with keys of 'label' and 'gauge' text and progress fraction, respectively
+        :type msg: dict
+        """
+        wx.CallAfter(self.label.SetLabelText, msg['label'])
+        wx.CallAfter(self.gauge.SetValue, int(100 * msg['gauge']))
+
+    def run(self):
+        """Initiate layout in GUI and begin dicom directory parser thread"""
+        self.Show()
+        ParseWorker(self.file_paths)
+
+    def close(self):
+        """Destroy layout in GUI and send message to being dicom parsing"""
+        pub.sendMessage("parse_complete")
+        wx.CallAfter(self.Destroy)

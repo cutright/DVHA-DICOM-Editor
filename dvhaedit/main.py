@@ -13,10 +13,11 @@ The main file for DVHA DICOM Editor
 import wx
 from os import sep
 from os.path import isdir, basename, join, dirname, normpath, splitext
+from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About
-from dvhaedit.dicom_editor import DICOMEditor, Tag
+from dvhaedit.dicom_editor import Tag, ParsingProgressFrame
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
     save_csv_to_file, load_csv_from_file
@@ -58,11 +59,13 @@ class MainFrame(wx.Frame):
 
         self.file_paths = []
         self.update_files_found()
+        self.refresh_needed = False
 
         self.directory = {'in': '', 'out': ''}
         
         self.__set_properties()
         self.__add_menubar()
+        self.__do_subscribe()
         self.__do_bind()
         self.__do_layout()
     
@@ -144,6 +147,15 @@ class MainFrame(wx.Frame):
         self.input['value'].Bind(wx.EVT_TEXT, self.update_add_enable)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_selection, id=self.list_ctrl.GetId())
+
+    def __do_subscribe(self):
+        pub.subscribe(self.add_parsed_data, "add_parsed_data")
+        pub.subscribe(self.on_parse_complete, "parse_complete")
+
+    def on_parse_complete(self):
+        self.update_combobox_files()
+        self.update_init_value()
+        self.update_modality()
 
     def __do_layout(self):
         """Create GUI layout"""
@@ -255,6 +267,10 @@ class MainFrame(wx.Frame):
         return get_selected_listctrl_items(self.list_ctrl)
 
     @property
+    def selected_file(self):
+        return self.input['selected_file'].GetSelection()
+
+    @property
     def data_table_has_data(self):
         return self.data_table.has_data and self.data_table.get_row(0)[0] != ''
 
@@ -263,6 +279,9 @@ class MainFrame(wx.Frame):
     #################################################################################
     def on_in_browse(self, *evt):
         self.on_browse(self.input['in_dir'])
+        if self.refresh_needed:
+            self.refresh_ds()
+            self.refresh_needed = False
 
     def on_out_browse(self, *evt):
         self.on_browse(self.input['out_dir'])
@@ -284,7 +303,7 @@ class MainFrame(wx.Frame):
             obj.SetBackgroundColour(wx.WHITE)  # Reset if background was orange, DirDialog forces a valid directory
             obj.ChangeValue(new_dir)  # Update TextCtrl without signaling a change event
             if obj == self.input['in_dir']:
-                self.refresh_ds()
+                self.refresh_needed = True
                 self.directory['in'] = new_dir
             else:
                 self.directory['out'] = new_dir
@@ -369,26 +388,29 @@ class MainFrame(wx.Frame):
 
     def on_save_dicom(self, *evt):
         """Apply edits, check for errors, then run save_files"""
-        do_save = True
+        if self.dir_contents_have_changed:
+            if not AskYesNo(self, "Directory contents have changed. Continue anyway?").run:
+                return
+
         error_log = self.apply_edits()  # Edits the loaded pydicom datasets
         if error_log:
             ViewErrorLog(error_log)
-            do_save = AskYesNo(self, "Continue writing DICOM files anyway?").run
+            if not AskYesNo(self, "Continue writing DICOM files anyway?").run:
+                return
 
-        if do_save:
-            if self.save_files(overwrite_check_only=True):
-                msg = "You will overwrite files with this action. Continue?"
-                caption = "Are you sure?"
-                flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
-                with wx.MessageDialog(self, msg, caption, flags) as dlg:
-                    if dlg.ShowModal() != wx.ID_YES:
-                        return
-            self.save_files()
+        if self.save_files(overwrite_check_only=True):
+            msg = "You will overwrite files with this action. Continue?"
+            caption = "Are you sure?"
+            flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
+            with wx.MessageDialog(self, msg, caption, flags) as dlg:
+                if dlg.ShowModal() != wx.ID_YES:
+                    return
+        self.save_files()
 
-            # If in and out directories are the same, need to update file list and datasets with new files
-            if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue():
-                self.get_files()
-                self.refresh_ds()
+        # If in and out directories are the same, need to update file list and datasets with new files
+        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue():
+            self.get_files()
+            self.refresh_ds()
 
     def on_quit(self, *evt):
         self.Close()
@@ -519,28 +541,18 @@ class MainFrame(wx.Frame):
         if choices:
             self.input['selected_file'].SetValue(choices[0])
 
-        self.update_init_value()
-
     def update_init_value(self):
         """Update Value in the Tag Editor based on the currently selected file"""
-        index = self.input['selected_file'].GetSelection()
         if self.group and self.element:
             try:
-                value = self.ds[self.file_paths[index]].get_tag_value(self.tag.tag)
+                value = self.ds[self.file_paths[self.selected_file]].get_tag_value(self.tag.tag)
                 self.input['value'].SetValue(value)
             except Exception:
                 self.input['value'].SetValue('')
-        self.update_modality(index)
 
-    def update_modality(self, file_index):
-        """
-        Update Modality in the Directory box based on the currently selected file
-        :param file_index: the index of self.file_paths for the file of interest
-        :type file_index: int
-        """
-        if file_index is None:
-            file_index = self.input['selected_file'].GetSelection()
-        modality = self.ds[self.file_paths[file_index]].modality if self.file_paths else ''
+    def update_modality(self):
+        """Update Modality in the Directory box based on the currently selected file"""
+        modality = self.ds[self.file_paths[self.selected_file]].modality if self.file_paths else ''
         self.label['modality'].SetLabel('Modality: ' + modality)
 
     def update_description(self):
@@ -581,15 +593,7 @@ class MainFrame(wx.Frame):
         """Update the stored DICOMEditor objects in self.ds"""
         self.get_files()
         self.ds = {}
-        new_file_paths = []
-        for f in self.file_paths:
-            try:
-                self.ds[f] = DICOMEditor(f)
-                new_file_paths.append(f)
-            except Exception:
-                pass
-        self.file_paths = new_file_paths
-        self.update_combobox_files()
+        ParsingProgressFrame(self.file_paths)
 
     #################################################################################
     # Utilities
@@ -633,6 +637,13 @@ class MainFrame(wx.Frame):
             components = normpath(file_path).split(sep)
             if index < len(components):
                 return splitext(components[index])[0], index
+
+    @property
+    def dir_contents_have_changed(self):
+        return sorted(get_file_paths(self.directory['in'])) != self.file_paths
+
+    def add_parsed_data(self, msg):
+        self.ds[msg['file_path']] = msg['data']
 
     #################################################################################
     # Finally... run the DICOM editor and save DICOM files
