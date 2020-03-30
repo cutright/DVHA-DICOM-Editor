@@ -15,62 +15,101 @@ from os.path import normpath, splitext
 
 
 class ValueGenerator:
+    """Process function calls in value string"""
     def __init__(self, value=None, tag=None):
+        """
+        :param value: input tag value from main frame
+        :type value: str
+        :param tag: the tag to be edited
+        """
         self.value = value
         self.tag = tag
-        self.fenum_instances = {}
-        self.venum_instances = {}
-        self.datasets = {}
+        self.enum_instances = {'file': {}, 'value': {}}
+        self.data_sets = {}
         self.file_paths = []
+        self.func_call = []
 
         if value is not None and tag is not None:
-            self.__set_func_call_dict()
+            self.set_func_call_dict()
 
-        self.func_map = {'dir': self.dir,
-                         'fenum': self.fenum,
-                         'venum': self.venum}
+        self.functions = ['dir', 'fenum', 'venum']
+        self.func_map = {f: getattr(self, f) for f in self.functions}
 
-    def __call__(self, datasets):
-        self.file_paths = sorted(list(datasets))
-        self.datasets = [datasets[f] for f in self.file_paths]
-        self.set_fenum_instances()
-        self.set_venum_instances()
+    def __call__(self, data_sets):
+        """
+        :param data_sets: parsed dicom data using DICOMEditor class
+        :return: new tag values
+        :rtype: dict
+        """
+        self.file_paths = sorted(list(data_sets))
+        self.data_sets = [data_sets[f] for f in self.file_paths]
+        self.set_enum_instances()
         new_values = {}
         for file_path in self.file_paths:
             new_value = self.value.split('*')
             for i, call_str in enumerate(self.value.split('*')):
                 if i % 2 == 1:
-                    new_value[i] = self.do_func_call(call_str, file_path)
+                    new_value[i] = self.get_value(call_str, file_path)
             new_values[file_path] = ''.join(new_value)
         return new_values
 
-    @property
-    def functions(self):
-        return list(self.func_map)
-
-    def do_func_call(self, call_str, file_path):
-        func, param = self.split_call_str(call_str)
-        if func in list(self.func_map):
-            return self.func_map[func](param, file_path)
-        return ''
-
-    @staticmethod
-    def split_call_str(func_call_str):
-        f_split = func_call_str.split('[')
-        func = f_split[0]
-        param = f_split[1][:-1]  # remove last character, ]
-        return func, int(param)
-
-    def __set_func_call_dict(self):
+    #################################################################################
+    # Setters
+    #################################################################################
+    def set_func_call_dict(self):
         """Create a dict of functions to input"""
-        # function calls exist between asterisks
         self.func_call = []
         for f in self.value.split('*')[1::2]:
             func, param = self.split_call_str(f)
             self.func_call.append((func, param))
 
+    def set_enum_instances(self):
+        """Collect all unique values for each of the enumerators"""
+        self.enum_instances = {'file': {}, 'value': {}}
+        for key, instances in self.enum_instances.items():
+            for index in self.get_parameters(key[0] + 'enum'):
+                if key == 'file':
+                    enum = [self.dir(index, f, True) for f in self.file_paths]
+                else:
+                    enum = [ds.get_tag_value(self.tag) for ds in self.data_sets]
+                instances[index] = sorted(list(set(enum)))
+
+    #################################################################################
+    # Getters
+    #################################################################################
+    def get_parameters(self, function):
+        """Get a the list of parameters for the specified function"""
+        parameters = []
+        for call_str in self.value.split('*')[1::2]:  # every odd index
+            func, param = self.split_call_str(call_str)
+            if func == function:
+                parameters.append(param)
+        return sorted(list(set(parameters)))
+
+    def get_value(self, call_str, file_path):
+        """Parse the function call string, perform the function"""
+        func, param = self.split_call_str(call_str)
+        if func in list(self.func_map):
+            return self.func_map[func](param, file_path)
+        return ''
+
+    #################################################################################
+    # Utilities
+    #################################################################################
+    @staticmethod
+    def split_call_str(func_call_str):
+        """Split the string into function and parameter"""
+        f_split = func_call_str.split('[')
+        func = f_split[0]
+        param = f_split[1][:-1]  # remove last character, ]
+        return func, int(param)
+
+    #################################################################################
+    # Functions
+    #################################################################################
     @staticmethod
     def dir(index, file_path, all_up_to_index=False):
+        """Process a directory name"""
         components = normpath(file_path).split(sep)
         if all_up_to_index:
             if index == -1:
@@ -79,29 +118,11 @@ class ValueGenerator:
                 return splitext('/'.join(components[:index+1]))[0]
         return splitext(components[index])[0]
 
-    def set_fenum_instances(self):
-        self.fenum_instances = {}
-        for index in self.parameters('fenum'):
-            fenum = [self.dir(index, f, True) for f in self.file_paths]
-            self.fenum_instances[index] = sorted(list(set(fenum)))
-
     def fenum(self, index, file_path):
-        return str(self.fenum_instances[index].index(self.dir(index, file_path, True)) + 1)
-
-    def parameters(self, function):
-        parameters = []
-        for call_str in self.value.split('*')[1::2]:  # every odd index
-            func, param = self.split_call_str(call_str)
-            if func == function:
-                parameters.append(param)
-        return parameters
-
-    def set_venum_instances(self):
-        self.venum_instances = {}
-        for index in self.parameters('venum'):
-            venum = [ds.get_tag_value(self.tag) for ds in self.datasets]
-            self.venum_instances[index] = sorted(list(set(venum)))
+        """Process a file enumeration"""
+        return str(self.enum_instances['file'][index].index(self.dir(index, file_path, True)) + 1)
 
     def venum(self, index, file_path):
-        ds = self.datasets[self.file_paths.index(file_path)]
-        return str(self.venum_instances[index].index(ds.get_tag_value(self.tag)) + 1)
+        """Process a value enumeration"""
+        ds = self.data_sets[self.file_paths.index(file_path)]
+        return str(self.enum_instances['value'][index].index(ds.get_tag_value(self.tag)) + 1)
