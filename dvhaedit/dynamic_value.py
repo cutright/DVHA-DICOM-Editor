@@ -15,7 +15,7 @@ from os.path import normpath, splitext
 
 
 class ValueGenerator:
-    def __init__(self, value, tag):
+    def __init__(self, value=None, tag=None):
         self.value = value
         self.tag = tag
         self.fenum_instances = {}
@@ -23,7 +23,8 @@ class ValueGenerator:
         self.datasets = {}
         self.file_paths = []
 
-        self.__set_func_call_dict()
+        if value is not None and tag is not None:
+            self.__set_func_call_dict()
 
         self.func_map = {'dir': self.dir,
                          'fenum': self.fenum,
@@ -42,6 +43,10 @@ class ValueGenerator:
                     new_value[i] = self.do_func_call(call_str, file_path)
             new_values[file_path] = ''.join(new_value)
         return new_values
+
+    @property
+    def functions(self):
+        return list(self.func_map)
 
     def do_func_call(self, call_str, file_path):
         func, param = self.split_call_str(call_str)

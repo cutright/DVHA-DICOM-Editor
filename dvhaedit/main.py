@@ -32,6 +32,7 @@ class MainFrame(wx.Frame):
         wx.Frame.__init__(self, *args, **kwds)
 
         self.ds = {}
+        self.functions = ValueGenerator().functions
 
         # Create GUI widgets
         keys =['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
@@ -139,6 +140,8 @@ class MainFrame(wx.Frame):
         for key in ['in_dir', 'out_dir']:
             self.input[key].Bind(wx.EVT_KEY_DOWN, self.on_key_down_dir)
             self.input[key].Bind(wx.EVT_TEXT, self.update_dir_obj_text_color)
+
+        self.input['value'].Bind(wx.EVT_TEXT, self.update_add_enable)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_selection, id=self.list_ctrl.GetId())
 
@@ -501,8 +504,12 @@ class MainFrame(wx.Frame):
         found = len(self.file_paths)
         label = "Files Found: %s" % found
         self.label['files_found'].SetLabel(label)
-        self.button['add'].Enable(found > 0)
+        self.update_add_enable()
         self.button['search'].Enable(found > 0)
+
+    def update_add_enable(self, *evt):
+        enable = len(self.file_paths) > 0 and bool(self.group) and bool(self.element) and self.value_is_valid
+        self.button['add'].Enable(enable)
 
     def update_combobox_files(self):
         """Update the combobox with the file names found in the current in directory"""
@@ -587,22 +594,27 @@ class MainFrame(wx.Frame):
     #################################################################################
     # Utilities
     #################################################################################
-    def apply_dir_to_value(self, value, file_path):
-        if self.value_has_func(value):
-            for i in range(value.count('dir')):
-                dir_value, index = self.get_nth_dir_from_file_path(value, i, file_path)
-                value = value.replace('*dir[%s]*' % index, dir_value)
-        return value
-
-    @staticmethod
-    def value_has_func(value):
-        """Check if value has a special function"""
-        return value.count('*') % 2 == 0
-
     @property
-    def value_has_dir_func(self):
-        value = self.input['value'].GetValue().lower()
-        return self.value_has_func(value) and '*dir[' in value and ']' in value
+    def value_is_valid(self):
+        value = self.input['value'].GetValue()
+        if '*' not in value:  # no functions
+            return True
+        if value.count('*') % 2 == 1:  # has functions, but missing *
+            return False
+
+        call_str = value.split('*')[1::2]
+
+        # each call requires left and right square brackets, an int between them, and a valid function call
+        for call in call_str:
+            if not (call.count('[') == 1 and call.count(']') == 1 and call.endswith(']')):
+                return False
+            if call.split('[')[0] not in self.functions:
+                return False
+            param = call.split('[')[1][:-1]
+            if not(param.isdigit() or (param.startswith('-') and param[1:].isdigit())):
+                return False
+
+        return True
 
     @staticmethod
     def path_index(value, n):
@@ -646,9 +658,10 @@ class MainFrame(wx.Frame):
                     value = value_type(values_dict[file_path])
                     ds.edit_tag(tag.tag, value)
                 except Exception as e:
+                    err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
                     value = value_str if value_str else '[empty value]'
                     error_log.append("Directory: %s\nFile: %s\n\tAttempt to edit %s to new value: %s\n\t%s\n" %
-                                     (dirname(file_path), basename(file_path), str(tag), value, str(e)))
+                                     (dirname(file_path), basename(file_path), tag, value, err_msg))
 
         return '\n'.join(error_log)
 
