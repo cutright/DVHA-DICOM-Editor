@@ -25,7 +25,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     save_csv_to_file, load_csv_from_file
 
 
-VERSION = '0.3dev1'
+VERSION = '0.3dev2'
 
 
 class MainFrame(wx.Frame):
@@ -38,7 +38,7 @@ class MainFrame(wx.Frame):
         self.functions = ValueGenerator().functions
 
         # Create GUI widgets
-        keys =['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
+        keys = ['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
         self.input = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in keys}
         self.input['selected_file'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
@@ -324,7 +324,6 @@ class MainFrame(wx.Frame):
             obj.ChangeValue(new_dir)  # Update TextCtrl without signaling a change event
             if obj == self.input['in_dir']:
                 self.refresh_needed = True
-                self.directory['in'] = new_dir
             else:
                 self.directory['out'] = new_dir
             self.input['tag_group'].SetFocus()
@@ -452,12 +451,16 @@ class MainFrame(wx.Frame):
         if obj in {self.input['in_dir'], self.input['out_dir']}:
             new_dir = obj.GetValue()
             if isdir(new_dir):
-                if obj == self.input['in_dir'] and new_dir != self.directory['in']:
+                if obj == self.input['in_dir']:
                     self.refresh_ds()
             else:
                 ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
                 dir_key = 'in' if obj == self.input['in_dir'] else 'out'
                 self.directory[dir_key] = new_dir
+                if obj == self.input['in_dir']:
+                    self.file_paths = []
+                    self.ds = {}
+                    self.on_parse_complete()
                 index -= 1
         self.input_text_obj[index].SetFocus()
         self.update_save_dicom_enable()
@@ -484,15 +487,17 @@ class MainFrame(wx.Frame):
         :type obj: wx.TextCtrl
         """
         new_dir = obj.GetValue()
-        key = 'in' if obj == self.input['in_dir'] else 'out'
-        if new_dir == self.directory[key]:
-            if isdir(obj.GetValue()):
-                if obj == self.input['in_dir']:
-                    self.refresh_ds()
-            else:
-                ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
-                dir_key = 'in' if obj == self.input['in_dir'] else 'out'
-                self.directory[dir_key] = new_dir
+        if isdir(new_dir):
+            if obj == self.input['in_dir']:
+                self.refresh_ds()
+        else:
+            ErrorDialog(self, "Please enter a valid directory.", "Directory Error")
+            dir_key = 'in' if obj == self.input['in_dir'] else 'out'
+            self.directory[dir_key] = new_dir
+            if obj == self.input['in_dir']:
+                self.file_paths = []
+                self.ds = {}
+                self.on_parse_complete()
 
     #################################################################################
     # Combobox Event tickers
@@ -594,7 +599,8 @@ class MainFrame(wx.Frame):
         self.input['value_type'].SetValue(tag_type)
 
     def update_vr(self):
-        self.label['value_rep'].SetLabel("Value Representation (VR): %s" % self.tag.vr)
+        value = self.tag.vr if self.group and self.element else ''
+        self.label['value_rep'].SetLabel("Value Representation (VR): %s" % value)
 
     #################################################################################
     # Data updaters
@@ -602,6 +608,7 @@ class MainFrame(wx.Frame):
     def get_files(self):
         """Get a list of all files in the currently specified in directory"""
         dir_path = self.input['in_dir'].GetValue()
+        self.directory['in'] = dir_path
         if isdir(dir_path):
             self.search_sub_folders_last_status = self.search_sub_folders.GetValue()
             self.file_paths = sorted(get_file_paths(dir_path, search_sub_folders=self.search_sub_folders.GetValue()))

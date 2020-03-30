@@ -12,6 +12,7 @@ Apply dynamic value functions
 
 from os import sep
 from os.path import normpath, splitext
+from pydicom.uid import generate_uid
 
 
 class ValueGenerator:
@@ -25,6 +26,7 @@ class ValueGenerator:
         self.value = value
         self.tag = tag
         self.enum_instances = {'file': {}, 'value': {}}
+        self.uids = {'file': {}, 'value': {}}
         self.data_sets = {}
         self.file_paths = []
         self.func_call = []
@@ -32,7 +34,7 @@ class ValueGenerator:
         if value is not None and tag is not None:
             self.set_func_call_dict()
 
-        self.functions = ['dir', 'fenum', 'venum']
+        self.functions = ['file', 'val', 'fenum', 'venum', 'fuid', 'vuid']
         self.func_map = {f: getattr(self, f) for f in self.functions}
 
     def __call__(self, data_sets):
@@ -67,22 +69,29 @@ class ValueGenerator:
         """Collect all unique values for each of the enumerators"""
         self.enum_instances = {'file': {}, 'value': {}}
         for key, instances in self.enum_instances.items():
-            for index in self.get_parameters(key[0] + 'enum'):
+            functions = [key[0] + f for f in ['enum', 'uid']]
+            for index in self.get_parameters(functions):
                 if key == 'file':
-                    enum = [self.dir(index, f, True) for f in self.file_paths]
+                    enum = [self.file(index, f, True) for f in self.file_paths]
                 else:
                     enum = [ds.get_tag_value(self.tag) for ds in self.data_sets]
                 instances[index] = sorted(list(set(enum)))
 
+        # set uids
+        self.uids = {'file': {}, 'value': {}}
+        for key, instances in self.enum_instances.items():
+            for index in self.get_parameters(key[0] + 'uid'):
+                self.uids[key][index] = {i: generate_uid() for i in self.enum_instances[key][index]}
+
     #################################################################################
     # Getters
     #################################################################################
-    def get_parameters(self, function):
+    def get_parameters(self, functions):
         """Get a the list of parameters for the specified function"""
         parameters = []
         for call_str in self.value.split('*')[1::2]:  # every odd index
             func, param = self.split_call_str(call_str)
-            if func == function:
+            if func in functions:
                 parameters.append(param)
         return sorted(list(set(parameters)))
 
@@ -108,7 +117,7 @@ class ValueGenerator:
     # Functions
     #################################################################################
     @staticmethod
-    def dir(index, file_path, all_up_to_index=False):
+    def file(index, file_path, all_up_to_index=False):
         """Process a directory name"""
         components = normpath(file_path).split(sep)
         if all_up_to_index:
@@ -118,11 +127,26 @@ class ValueGenerator:
                 return splitext('/'.join(components[:index+1]))[0]
         return splitext(components[index])[0]
 
+    def val(self, index, file_path):
+        ds = self.data_sets[self.file_paths.index(file_path)]
+        return ds.get_tag_value(self.tag)
+
     def fenum(self, index, file_path):
         """Process a file enumeration"""
-        return str(self.enum_instances['file'][index].index(self.dir(index, file_path, True)) + 1)
+        return str(self.enum_instances['file'][index].index(self.file(index, file_path, True)) + 1)
 
     def venum(self, index, file_path):
         """Process a value enumeration"""
         ds = self.data_sets[self.file_paths.index(file_path)]
         return str(self.enum_instances['value'][index].index(ds.get_tag_value(self.tag)) + 1)
+
+    def fuid(self, index, file_path):
+        """Process a file enumeration"""
+        fenum_value = self.file(index, file_path, True)
+        return self.uids['file'][index][fenum_value]
+
+    def vuid(self, index, file_path):
+        """Process a value enumeration"""
+        ds = self.data_sets[self.file_paths.index(file_path)]
+        venum_value = ds.get_tag_value(self.tag)
+        return self.uids['value'][index][venum_value]

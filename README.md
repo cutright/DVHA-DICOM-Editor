@@ -35,19 +35,23 @@ Dynamic Value Setting
 Users can dynamically define DICOM tag values with one of the functions below, which are denoted by asterisk-pairs.
 
 Available functions:
-* `dir[n]`: insert the n<sup>th</sup> component of the file path
+* `file[n]`: insert the n<sup>th</sup> component of the file path
 * `fenum[n]`: insert an iterator based on the  n<sup>th</sup> component of the file path
+* `fuid[n]`: same as fenum, except the enumeration value is replaced with a DICOM compliant UID
+* `val[n]`: insert a value based on the tag value, n=-1 being tag value, n=-2 the parent value, etc.
 * `venum[n]`: insert an iterator based on the tag value, n=-1 being tag value, n=-2 the parent value, etc. 
-(NOTE: only n=-1 is currently supported)
+* `vuid[n]`: same as venum, except the enumeration value is replaced with a DICOM compliant UID  
+
+(NOTE: only n=-1 is *currently* supported for `val`, `venum`, and `vuid`)
 
 ### Examples
 For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file_2.dcm`:
 * *Directory*:
     * NOTE: file extensions are removed
-    * `some_string_*dir[-1]*`
+    * `some_string_*file[-1]*`
         * some_string_file_1
         * some_string_file_2
-    * `*dir[-2]*_AnotherString`
+    * `*file[-2]*_AnotherString`
         * ANON0001_AnotherString
         * ANON0001_AnotherString
 * *File Enumeration*:
@@ -59,10 +63,10 @@ For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file
         * 1_AnotherString
 * *Value Enumeration*:
     * NOTE: Assume each file has the same StudyInstanceUID but different SOPInstanceUIDs
-    * `*dir[-2]*_*venum[-1]*` used with SOPInstanceUID tag
+    * `*file[-2]*_*venum[-1]*` used with SOPInstanceUID tag
         * ANON0001_1
         * ANON0001_2
-    * `*dir[-2]*_*venum[-1]*` used with StudyInstanceUID tag
+    * `*file[-2]*_*venum[-1]*` used with StudyInstanceUID tag
         * ANON0001_1
         * ANON0001_1
 
