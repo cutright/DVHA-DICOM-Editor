@@ -16,7 +16,8 @@ from os.path import isdir, basename, join, dirname, normpath, splitext
 from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
-from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About, ParsingProgressFrame
+from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,\
+    ParsingProgressFrame, SavingProgressFrame
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
@@ -151,6 +152,7 @@ class MainFrame(wx.Frame):
     def __do_subscribe(self):
         pub.subscribe(self.add_parsed_data, "add_parsed_data")
         pub.subscribe(self.on_parse_complete, "parse_complete")
+        pub.subscribe(self.on_save_complete, 'save_complete')
 
     def on_parse_complete(self):
         self.update_combobox_files()
@@ -398,19 +400,21 @@ class MainFrame(wx.Frame):
             if not AskYesNo(self, "Continue writing DICOM files anyway?").run:
                 return
 
-        if self.save_files(overwrite_check_only=True):
+        if self.set_output_paths(check_only=True):
             msg = "You will overwrite files with this action. Continue?"
             caption = "Are you sure?"
             flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
             with wx.MessageDialog(self, msg, caption, flags) as dlg:
                 if dlg.ShowModal() != wx.ID_YES:
                     return
-        self.save_files()
+        self.set_output_paths()
+        SavingProgressFrame(self.ds.values())
 
+    def on_save_complete(self):
         # If in and out directories are the same, need to update file list and datasets with new files
         if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue():
             self.get_files()
-            self.refresh_ds()
+            wx.CallAfter(self.refresh_ds)
 
     def on_quit(self, *evt):
         self.Close()
@@ -676,11 +680,11 @@ class MainFrame(wx.Frame):
 
         return '\n'.join(error_log)
 
-    def save_files(self, overwrite_check_only=False):
+    def set_output_paths(self, check_only=False):
         """
         Save all of the loaded pydicom datasets with the new edits
-        :param overwrite_check_only: If true, perform loop without save to check for overwriting
-        :type overwrite_check_only: bool
+        :param check_only: If true, perform loop without save to check for overwriting
+        :type check_only: bool
         :return: status of file overwriting, if overwrite_check_only=True
         :rtype: bool
         """
@@ -689,17 +693,13 @@ class MainFrame(wx.Frame):
         for file_path, ds in self.ds.items():
             file_name = prepend + basename(file_path)
             output_path = join(output_dir, file_name)
-            if overwrite_check_only:
+            if check_only:
                 if output_path in list(self.ds):
                     return True
             else:
-                try:
-                    ds.save_as(output_path)
-                except OSError as e:
-                    ErrorDialog(self, str(e), "Save Error")
-                    break
+                ds.output_path = output_path
 
-        if overwrite_check_only:
+        if check_only:
             return False
 
     @staticmethod

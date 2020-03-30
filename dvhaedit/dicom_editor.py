@@ -30,6 +30,8 @@ class DICOMEditor:
         else:
             self.dcm = dcm
 
+        self.output_path = None
+
     def edit_tag(self, tag, new_value):
         """
         Change a DICOM tag value
@@ -63,12 +65,13 @@ class DICOMEditor:
         """
         return str(type(self.dcm[tag].value)).split("'")[1]
 
-    def save_as(self, file_path):
+    def save_to_file(self, file_path=None):
         """
         Save the dataset to a DICOM file with pydicom
         :param file_path: absolute file path
         :type file_path: str
         """
+        file_path = self.output_path if file_path is None else file_path
         self.dcm.save_as(file_path)
 
     @property
@@ -201,3 +204,8 @@ class TagSearch:
 
         data = {'Keyword': keywords, 'Tag': tags, 'VR': value_reps}
         return {'data': data, 'columns': columns}
+
+
+def save_dicom(data_set):
+    """Helper function for the Save Worker/Thread"""
+    data_set.save_to_file()

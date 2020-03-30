@@ -16,7 +16,7 @@ from queue import Queue
 from threading import Thread
 from time import sleep
 from dvhaedit.data_table import DataTable
-from dvhaedit.dicom_editor import TagSearch, DICOMEditor
+from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
 from dvhaedit.paths import LICENSE_PATH
 from dvhaedit.utilities import save_csv_to_file, get_window_size
 
@@ -248,7 +248,7 @@ class About(wx.Dialog):
 
 class ProgressFrame(wx.Dialog):
     """Create a window to display progress and begin provided worker"""
-    def __init__(self, obj_list, action, action_msg, action_gui_phrase, title, close_msg):
+    def __init__(self, obj_list, action, close_msg, action_msg=None, action_gui_phrase='Processing', title='Progress'):
         wx.Dialog.__init__(self, None)
 
         self.close_msg = close_msg
@@ -307,7 +307,7 @@ class ProgressFrame(wx.Dialog):
 
     def close(self):
         """Destroy layout in GUI and send message close message for parent"""
-        pub.sendMessage(self.close_msg)
+        wx.CallAfter(pub.sendMessage, self.close_msg)
         self.__do_unsubscribe()
         wx.CallAfter(self.Destroy)
 
@@ -337,7 +337,7 @@ class ProgressFrameWorker(Thread):
 
     def get_queue(self):
         queue = Queue()
-        for i, obj in enumerate(list(self.obj_list)):
+        for i, obj in enumerate(self.obj_list):
             msg = {'label': '%s %s of %s' % (self.action_gui_phrase, i + 1, self.obj_count),
                    'gauge': i / self.obj_count}
             queue.put((obj, msg))
@@ -355,16 +355,24 @@ class ProgressFrameWorker(Thread):
 
     def do_action(self, obj, msg):
         pub.sendMessage("progress_update", msg=msg)
-        try:
-            msg = {'obj': obj, 'data': self.action(obj)}
+
+        result = self.action(obj)
+        if self.action_msg is not None:
+            msg = {'obj': obj, 'data': result}
             pub.sendMessage(self.action_msg, msg=msg)
-        except Exception:
-            pass
 
 
 class ParsingProgressFrame(ProgressFrame):
     """Create a window to display parsing progress and begin ParseWorker"""
     def __init__(self, file_paths):
-        ProgressFrame.__init__(self, file_paths, DICOMEditor,
+        ProgressFrame.__init__(self, file_paths, DICOMEditor, close_msg='parse_complete',
                                action_msg='add_parsed_data', action_gui_phrase='Parsing File',
-                               title='Reading DICOM Headers', close_msg='parse_complete')
+                               title='Reading DICOM Headers')
+
+
+class SavingProgressFrame(ProgressFrame):
+    """Create a window to display saving progress and begin SaveWorker"""
+    def __init__(self, data_sets):
+        ProgressFrame.__init__(self, data_sets, save_dicom, close_msg='save_complete',
+                               action_gui_phrase='Saving File',
+                               title='Saving DICOM Data')
