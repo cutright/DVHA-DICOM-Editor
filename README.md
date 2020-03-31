@@ -6,7 +6,10 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
 * Executables provided, which require no installation  
 * Create templates for routine tag editing
 * Search for DICOM tags by keyword
-* Dynamically define new DICOM tag values
+* Dynamically define new DICOM tag values based on:
+    * File paths
+    * Initial DICOM tag values
+    * DICOM compliant UIDs
 
 <a href="https://pypi.org/project/dvha-edit/">
         <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>
@@ -44,7 +47,7 @@ Users can dynamically define new DICOM tag values based on file path or initial 
 * DICOM UID
     * `fuid[n]` and `vuid[n]`: same as `fenum`/`venum`, except the enumeration value is replaced with a DICOM compliant UID
 
-**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, and `fuid` functions 
+**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, and `vuid` functions 
 currently ignore `n`, although n must still be an integer.
 
 ### Examples
