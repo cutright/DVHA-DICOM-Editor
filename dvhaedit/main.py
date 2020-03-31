@@ -22,7 +22,7 @@ from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialo
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    save_csv_to_file, load_csv_from_file, get_window_size
+    save_csv_to_file, load_csv_from_file, get_window_size, is_mac
 
 
 VERSION = '0.3'
@@ -105,6 +105,8 @@ class MainFrame(wx.Frame):
                                              "(not yet supported).")
         self.input['preview'].SetToolTip("Values may be set dynamically, a preview is shown here. Note that generated "
                                          "UIDs shown here will be different than the final value.")
+        if is_mac():
+            self.input['preview'].SetBackgroundColour((230, 230, 230))
 
         for key in ['add', 'delete', 'save_dicom', 'save_template']:
             self.button[key].Disable()
