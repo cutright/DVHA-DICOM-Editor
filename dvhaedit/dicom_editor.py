@@ -26,7 +26,7 @@ class DICOMEditor:
         :param dcm: either a file_path to a DICOM file or a pydicom FileDataset
         """
         if type(dcm) is not pydicom.dataset.FileDataset:
-            self.dcm = pydicom.read_file(dcm, stop_before_pixels=True, force=True)
+            self.dcm = pydicom.read_file(dcm, force=True)
         else:
             self.dcm = dcm
 

@@ -12,7 +12,7 @@ The main file for DVHA DICOM Editor
 
 import wx
 from os import sep
-from os.path import isdir, basename, join, dirname, normpath, splitext, relpath
+from os.path import isdir, isfile, basename, join, dirname, normpath, splitext, relpath
 from pathlib import Path
 from pubsub import pub
 import webbrowser
@@ -25,7 +25,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     save_csv_to_file, load_csv_from_file, get_window_size
 
 
-VERSION = '0.3rc1'
+VERSION = '0.3'
 
 
 class MainFrame(wx.Frame):
@@ -544,10 +544,6 @@ class MainFrame(wx.Frame):
                  self.data_table_has_data
         self.button['save_dicom'].Enable(enable)
 
-        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue() and \
-                not self.input['prepend_file_name'].GetValue():
-            self.input['prepend_file_name'].ChangeValue('copy_')
-
     def update_delete_enable(self, *evt):
         """Only enable delete button if edits in the ListCtrl are selected"""
         self.button['delete'].Enable(len(self.data_table.selected_row_data))
@@ -749,14 +745,16 @@ class MainFrame(wx.Frame):
         for file_path, ds in self.ds.items():
             file_name = prepend + basename(file_path)
             output_path = join(output_dir, file_name)
+            if self.retain_rel_dir.GetValue():
+                rel_out_path = join(output_dir, relpath(dirname(file_path), input_dir))
+                if not check_only:
+                    Path(rel_out_path).mkdir(parents=True, exist_ok=True)
+                output_path = join(rel_out_path, file_name)
+
             if check_only:
-                if output_path in list(self.ds):
+                if isfile(output_path):
                     return True
             else:
-                if self.retain_rel_dir.GetValue():
-                    rel_out_path = join(output_dir, relpath(dirname(file_path), input_dir))
-                    Path(rel_out_path).mkdir(parents=True, exist_ok=True)
-                    output_path = join(rel_out_path, file_name)
                 ds.output_path = output_path
 
         if check_only:
