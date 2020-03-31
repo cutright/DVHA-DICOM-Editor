@@ -17,6 +17,7 @@ from threading import Thread
 from time import sleep
 from dvhaedit.data_table import DataTable
 from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
+from dvhaedit.dynamic_value import HELP_TEXT
 from dvhaedit.paths import LICENSE_PATH
 from dvhaedit.utilities import save_csv_to_file, get_window_size
 
@@ -214,36 +215,56 @@ class TagSearchDialog(wx.Dialog):
         self.Close()
 
 
-class About(wx.Dialog):
+class TextViewer(wx.Dialog):
     """Simple dialog to display the LICENSE file and a brief text header in a scrollable window"""
-    def __init__(self, version):
-        wx.Dialog.__init__(self, None, title='About DVHA DICOM Editor')
+    def __init__(self, text, title, width=0.3, height=0.6):
+        wx.Dialog.__init__(self, None, title=title)
 
-        scrolled_window = wx.ScrolledWindow(self, wx.ID_ANY)
+        self.size = get_window_size(width, height)
 
-        with open(LICENSE_PATH, 'r', encoding="utf8") as license_file:
-            license_text = ''.join([line for line in license_file])
+        self.scrolled_window = wx.ScrolledWindow(self, wx.ID_ANY)
+        self.text = wx.StaticText(self.scrolled_window, wx.ID_ANY, text)
 
-        license_text = "DVHA DICOM Editor v%s\nedit.dvhanalytics.com\n\n%s" % (version, license_text)
+        self.__set_properties()
+        self.__do_layout()
 
+        self.run()
+
+    def __set_properties(self):
+        self.scrolled_window.SetScrollRate(20, 20)
+        self.SetBackgroundColour(wx.WHITE)
+
+    def __do_layout(self):
         sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
         sizer_text = wx.BoxSizer(wx.VERTICAL)
 
-        scrolled_window.SetScrollRate(20, 20)
-
-        license_text = wx.StaticText(scrolled_window, wx.ID_ANY, license_text)
-        sizer_text.Add(license_text, 0, wx.EXPAND | wx.ALL, 5)
-        scrolled_window.SetSizer(sizer_text)
-        sizer_wrapper.Add(scrolled_window, 1, wx.EXPAND, 0)
-
-        self.SetBackgroundColour(wx.WHITE)
+        sizer_text.Add(self.text, 0, wx.EXPAND | wx.ALL, 5)
+        self.scrolled_window.SetSizer(sizer_text)
+        sizer_wrapper.Add(self.scrolled_window, 1, wx.EXPAND, 0)
 
         self.SetSizer(sizer_wrapper)
-        self.SetSize((750, 900))
+        self.SetSize(self.size)
         self.Center()
 
+    def run(self):
         self.ShowModal()
         self.Destroy()
+
+
+class About(TextViewer):
+    """Simple dialog to display the LICENSE file and a brief text header in a scrollable window"""
+    def __init__(self, version):
+
+        with open(LICENSE_PATH, 'r', encoding="utf8") as license_file:
+            license_text = ''.join([line for line in license_file])
+        license_text = "DVHA DICOM Editor v%s\nedit.dvhanalytics.com\n\n%s" % (version, license_text)
+
+        TextViewer.__init__(self, license_text, title='About DVHA DICOM Editor')
+
+
+class DynamicValueHelp(TextViewer):
+    def __init__(self):
+        TextViewer.__init__(self, HELP_TEXT, title='Dynamic Values', width=0.4)
 
 
 class ProgressFrame(wx.Dialog):

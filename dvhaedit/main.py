@@ -18,7 +18,7 @@ from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,\
-    ParsingProgressFrame, SavingProgressFrame
+    ParsingProgressFrame, SavingProgressFrame, DynamicValueHelp
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
@@ -50,6 +50,7 @@ class MainFrame(wx.Frame):
         self.button = {key: wx.Button(self, wx.ID_ANY, key.replace('_', ' ').title()) for key in keys}
         bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
         self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
+        self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
         columns = ['Tag', 'Description', 'Value', 'Value Type']
         data = {c: [''] for c in columns}
@@ -218,7 +219,10 @@ class MainFrame(wx.Frame):
         sizer_edit_wrapper.Add(sizer_edit, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_value_description.Add(self.label['value'], 0, wx.LEFT, 5)
-        sizer_value_description.Add(self.input['value'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+        row_sizer_value_help = wx.BoxSizer(wx.HORIZONTAL)
+        row_sizer_value_help.Add(self.input['value'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+        row_sizer_value_help.Add(self.button['value_help'], 0, wx.LEFT | wx.RIGHT, 5)
+        sizer_value_description.Add(row_sizer_value_help, 1, wx.EXPAND, 5)
         sizer_value_description.Add(self.label['description'], 0, wx.TOP | wx.LEFT, 5)
         sizer_value_description.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 5)
         sizer_value_description.Add(self.label['preview'], 0, wx.BOTTOM | wx.LEFT, 5)
@@ -361,6 +365,9 @@ class MainFrame(wx.Frame):
 
     def on_search(self, *evt):
         TagSearchDialog(self)
+
+    def on_value_help(self, *evt):
+        DynamicValueHelp()
 
     def on_delete(self, *evt):
         """Delecte the selected tag edits"""
