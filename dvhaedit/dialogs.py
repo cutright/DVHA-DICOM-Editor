@@ -16,7 +16,7 @@ from queue import Queue
 from threading import Thread
 from time import sleep
 from dvhaedit.data_table import DataTable
-from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
+from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom, get_uid_prefixes
 from dvhaedit.dynamic_value import HELP_TEXT
 from dvhaedit.paths import LICENSE_PATH
 from dvhaedit.utilities import save_csv_to_file, get_window_size
@@ -398,3 +398,84 @@ class SavingProgressFrame(ProgressFrame):
         ProgressFrame.__init__(self, data_sets, save_dicom, close_msg='save_complete',
                                action_gui_phrase='Saving File',
                                title='Saving DICOM Data')
+
+
+class AdvancedSettings(wx.Dialog):
+    def __init__(self, options):
+        wx.Dialog.__init__(self, None, title='User Settings')
+
+        self.options = options
+
+        key_map = {'dicom_prefix': 'Prefix:', 'rand_digits': 'Digits:'}
+        self.combo_box = {key: wx.ComboBox(self, wx.ID_ANY, "") for key in key_map.keys()}
+        self.label = {key: wx.StaticText(self, wx.ID_ANY, value) for key, value in key_map.items()}
+
+        key_map = {'entropy_source': 'Entropy Source:'}
+        self.text_ctrl = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in key_map.keys()}
+        for key, value in key_map.items():
+            self.label[key] = wx.StaticText(self, wx.ID_ANY, value)
+
+        self.button = {'ok': wx.Button(self, wx.ID_OK, 'OK'),
+                       'cancel': wx.Button(self, wx.ID_CANCEL, 'Cancel')}
+
+        self.__set_properties()
+        self.__do_layout()
+
+        self.run()
+
+    def __set_properties(self):
+        self.combo_box['dicom_prefix'].SetItems(sorted(list(self.options.prefix_dict)))
+        self.combo_box['dicom_prefix'].SetValue(self.options.prefix)
+
+        self.combo_box['rand_digits'].SetItems([str(i+1) for i in range(15)])
+        self.combo_box['rand_digits'].SetValue(str(self.options.rand_digits))
+
+    def __do_layout(self):
+        sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
+        sizer_main = wx.BoxSizer(wx.VERTICAL)
+        sizer_dicom = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "DICOM UID Generator"), wx.VERTICAL)
+        sizer_rand = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Random Number Generator"), wx.VERTICAL)
+        sizer_buttons = wx.BoxSizer(wx.HORIZONTAL)
+
+        sizer_dicom.Add(self.label['dicom_prefix'], 0, 0, 0)
+        sizer_dicom.Add(self.combo_box['dicom_prefix'], 0, 0, 0)
+        sizer_dicom.Add(self.label['entropy_source'], 0, 0, 0)
+        sizer_dicom.Add(self.text_ctrl['entropy_source'], 0, wx.EXPAND, 0)
+        sizer_main.Add(sizer_dicom, 0, wx.ALL, 10)
+
+        sizer_rand.Add(self.label['rand_digits'], 0, 0, 0)
+        sizer_rand.Add(self.combo_box['rand_digits'], 0, 0, 0)
+        sizer_main.Add(sizer_rand, 0, wx.ALL, 10)
+
+        sizer_buttons.Add(self.button['ok'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_buttons.Add(self.button['cancel'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_main.Add(sizer_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+
+        sizer_wrapper.Add(sizer_main, 0, wx.ALL, 5)
+
+        self.SetSizer(sizer_wrapper)
+        self.Fit()
+        self.Layout()
+        self.Center()
+
+    def run(self):
+        if self.ShowModal() == wx.ID_OK:
+            self.apply_settings()
+        self.Destroy()
+
+    def apply_settings(self):
+        self.set_prefix()
+        self.set_entropy()
+        self.set_rand_digits()
+
+    def set_prefix(self):
+        new_value = self.combo_box['dicom_prefix'].GetValue()
+        if new_value in self.options.prefix_dict.keys():
+            new_value = self.options.prefix_dict[new_value] + '.'
+        self.options.prefix = new_value
+
+    def set_entropy(self):
+        self.options.entropy_source = [self.text_ctrl['entropy_source'].GetValue()]
+
+    def set_rand_digits(self):
+        self.options.rand_digits = int(self.combo_box['rand_digits'].GetValue())

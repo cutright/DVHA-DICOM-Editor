@@ -3,6 +3,7 @@
 v0.4 (TBD)
 --------------------
  - Random number generator functions: `vrand` and `frand`
+ - Optionally set DICOM prefix and entropy source in "Advanced"
 
 v0.3 (2020.03.31)
 --------------------

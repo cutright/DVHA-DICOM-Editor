@@ -11,6 +11,7 @@ The main file for DVHA DICOM Editor
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 import wx
+from copy import deepcopy
 from os import sep
 from os.path import isdir, isfile, basename, join, dirname, normpath, splitext, relpath
 from pathlib import Path
@@ -18,14 +19,15 @@ from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,\
-    ParsingProgressFrame, SavingProgressFrame, DynamicValueHelp
+    ParsingProgressFrame, SavingProgressFrame, DynamicValueHelp, AdvancedSettings
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
+from dvhaedit.options import Options
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
     save_csv_to_file, load_csv_from_file, get_window_size, is_mac
 
 
-VERSION = '0.3'
+VERSION = '0.4dev1'
 
 
 class MainFrame(wx.Frame):
@@ -36,6 +38,8 @@ class MainFrame(wx.Frame):
 
         self.ds = {}
         self.functions = ValueGenerator().functions
+        self.all_options = {}
+        self.current_options = Options()
 
         # Create GUI widgets
         keys = ['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
@@ -46,16 +50,16 @@ class MainFrame(wx.Frame):
         self.input_text_obj = [self.input[key] for key in keys]  # use for text event binding and focusing
 
         keys = ['save_dicom', 'quit', 'in_browse', 'out_browse', 'add', 'delete', 'select_all', 'deselect_all',
-                'save_template', 'load_template']
+                'save_template', 'load_template', 'advanced']
         self.button = {key: wx.Button(self, wx.ID_ANY, key.replace('_', ' ').title()) for key in keys}
         bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
         self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
         self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
-        columns = ['Tag', 'Description', 'Value', 'Value Type']
+        columns = ['Tag', 'Description', 'Value', 'Value Type', 'Options Key']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
-        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
+        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 5)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'selected_file',
                 'modality', 'prepend_file_name', 'add', 'search', 'value_rep', 'preview']
@@ -108,7 +112,7 @@ class MainFrame(wx.Frame):
         if is_mac():
             self.input['preview'].SetBackgroundColour((230, 230, 230))
 
-        for key in ['add', 'delete', 'save_dicom', 'save_template']:
+        for key in ['add', 'delete', 'save_dicom', 'save_template', 'advanced']:
             self.button[key].Disable()
 
         self.input['selected_file'].Disable()
@@ -128,7 +132,7 @@ class MainFrame(wx.Frame):
         menu_open = file_menu.Append(wx.ID_OPEN, '&Open\tCtrl+O')
         self.menu_save = file_menu.Append(wx.ID_ANY, '&Save\tCtrl+S')
         self.menu_save.Enable(False)
-
+        file_menu.Append(wx.ID_SEPARATOR)
         qmi = file_menu.Append(wx.ID_ANY, '&Quit\tCtrl+Q')
 
         help_menu = wx.Menu()
@@ -141,6 +145,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_save_template, self.menu_save)
         self.Bind(wx.EVT_MENU, self.on_githubpage, menu_github)
         self.Bind(wx.EVT_MENU, self.on_report_issue, menu_report_issue)
+        file_menu.Append(wx.ID_SEPARATOR)
         self.Bind(wx.EVT_MENU, self.on_about, menu_about)
 
         self.frame_menubar.Append(file_menu, '&File')
@@ -224,6 +229,7 @@ class MainFrame(wx.Frame):
         row_sizer_value_help = wx.BoxSizer(wx.HORIZONTAL)
         row_sizer_value_help.Add(self.input['value'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
         row_sizer_value_help.Add(self.button['value_help'], 0, wx.LEFT | wx.RIGHT, 5)
+        row_sizer_value_help.Add(self.button['advanced'], 0, wx.LEFT | wx.RIGHT, 5)
         sizer_value_description.Add(row_sizer_value_help, 1, wx.EXPAND, 5)
         sizer_value_description.Add(self.label['description'], 0, wx.TOP | wx.LEFT, 5)
         sizer_value_description.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 5)
@@ -348,7 +354,13 @@ class MainFrame(wx.Frame):
 
     def on_add(self, *evt):
         """Add a tag edit"""
-        row = [str(self.tag), self.description, self.input['value'].GetValue(), self.input['value_type'].GetValue()]
+        options_key = 0 if not list(self.all_options) else max(list(self.all_options)) + 1
+        self.all_options[options_key] = deepcopy(self.current_options)
+        row = [str(self.tag),
+               self.description,
+               self.input['value'].GetValue(),
+               self.input['value_type'].GetValue(),
+               options_key]
         if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
@@ -399,6 +411,9 @@ class MainFrame(wx.Frame):
             self.input['tag_group'].SetValue(group)
             self.input['tag_element'].SetValue(element)
             self.input['value_type'].SetValue(selected_data[0][3])
+            self.update_description()
+            self.update_init_value()
+            self.update_preview()
 
     def on_save_template(self, *evt):
         """Save the current tag edits to a CSV"""
@@ -570,6 +585,8 @@ class MainFrame(wx.Frame):
     def update_add_enable(self, *evt):
         enable = len(self.file_paths) > 0 and bool(self.group) and bool(self.element) and self.value_is_valid
         self.button['add'].Enable(enable)
+        self.button['advanced'].Enable(enable and any(["*%s[" % v in self.value
+                                                       for v in ['fuid', 'vuid', 'frand', 'vrand']]))
         if enable:
             self.update_preview()
         else:
@@ -624,7 +641,7 @@ class MainFrame(wx.Frame):
         """Apply the tag edits to every file in self.ds, return any errors"""
         tag = self.tag
         value_str = self.value
-        value_gen = ValueGenerator(value_str, tag.tag)
+        value_gen = ValueGenerator(value_str, tag.tag, self.current_options)
         file = self.file_paths[self.selected_file]
         value = value_gen(self.ds)[file]
 
@@ -702,6 +719,10 @@ class MainFrame(wx.Frame):
     def add_parsed_data(self, msg):
         self.ds[msg['obj']] = msg['data']
 
+    def on_advanced(self,*evt):
+        AdvancedSettings(self.current_options)
+        self.update_preview()
+
     #################################################################################
     # Finally... run the DICOM editor and save DICOM files
     #################################################################################
@@ -717,7 +738,8 @@ class MainFrame(wx.Frame):
 
             value_str = row_data[2]
             value_type = get_type(row_data[3])
-            value_gen = ValueGenerator(value_str, tag.tag)
+            options = self.all_options[row_data[4]]
+            value_gen = ValueGenerator(value_str, tag.tag, options)
             values_dict = value_gen(self.ds)
 
             for file_path, ds in self.ds.items():

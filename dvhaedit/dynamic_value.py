@@ -18,7 +18,7 @@ from secrets import randbelow
 
 class ValueGenerator:
     """Process function calls in value string"""
-    def __init__(self, value=None, tag=None):
+    def __init__(self, value=None, tag=None, options=None):
         """
         :param value: input tag value from main frame
         :type value: str
@@ -26,6 +26,7 @@ class ValueGenerator:
         """
         self.value = value
         self.tag = tag
+        self.options = options
         self.enum_instances = {'file': {}, 'value': {}}
         self.uids = {'file': {}, 'value': {}}
         self.rand = {'file': {}, 'value': {}}
@@ -80,16 +81,26 @@ class ValueGenerator:
                 instances[index] = sorted(list(set(enum)))
 
         # set uids
+        prefix = self.options.prefix if hasattr(self.options, 'prefix') else None
+        if prefix == '':
+            prefix = None
+        entropy_srcs = self.options.entropy_source if hasattr(self.options, 'entropy_source') else None
+        if entropy_srcs == '':
+            entropy_srcs = None
         self.uids = {'file': {}, 'value': {}}
         for key, instances in self.enum_instances.items():
             for index in self.get_parameters(key[0] + 'uid'):
-                self.uids[key][index] = {i: generate_uid() for i in self.enum_instances[key][index]}
+                self.uids[key][index] = {i: generate_uid(prefix=prefix, entropy_srcs=entropy_srcs)
+                                         for i in self.enum_instances[key][index]}
 
         # set random numbers
+        digits = self.options.rand_digits if hasattr(self.options, 'rand_digits') else 5
+        max_num = 10 ** digits
         self.rand = {'file': {}, 'value': {}}
         for key, instances in self.enum_instances.items():
             for index in self.get_parameters(key[0] + 'rand'):
-                self.rand[key][index] = {i: str(randbelow(100000)).zfill(5) for i in self.enum_instances[key][index]}
+                self.rand[key][index] = {i: str(randbelow(max_num)).zfill(digits)
+                                         for i in self.enum_instances[key][index]}
 
     #################################################################################
     # Getters

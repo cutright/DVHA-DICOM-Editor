@@ -13,6 +13,7 @@ Classes used to edit pydicom datasets
 import pydicom
 from pydicom.datadict import keyword_dict, get_entry
 from pydicom._dicom_dict import DicomDictionary
+from pydicom._uid_dict import UID_dictionary
 from dvhaedit.utilities import remove_non_alphanumeric, get_sorted_indices
 
 
@@ -209,3 +210,14 @@ class TagSearch:
 def save_dicom(data_set):
     """Helper function for the Save Worker/Thread"""
     data_set.save_to_file()
+
+
+def get_uid_prefixes():
+    prefix_dict = {}
+    for prefix, data in UID_dictionary.items():
+        if data[0]:
+            key = "%s - %s" % (data[0], data[1])
+            if data[3].lower() == 'retired':
+                key = key + ' (Retired)'
+            prefix_dict[key] = prefix
+    return prefix_dict
