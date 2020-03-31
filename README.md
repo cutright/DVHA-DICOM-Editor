@@ -12,7 +12,7 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
     * DICOM compliant UIDs
         * Lookup DICOM prefixes
         * Set entropy source for UID generation
-    * Randomly generated numbers (up to 15 digits) with `secret.randbelow`
+    * Randomly generated numbers
 
 <a href="https://pypi.org/project/dvha-edit/">
         <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>

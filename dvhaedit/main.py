@@ -58,6 +58,7 @@ class MainFrame(wx.Frame):
 
         columns = ['Tag', 'Description', 'Value', 'Value Type', 'Options Key']
         data = {c: [''] for c in columns}
+        columns.pop(-1)
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 5)
 
@@ -108,7 +109,8 @@ class MainFrame(wx.Frame):
                                              "in any of the loaded DICOM Files or it is within a sequence "
                                              "(not yet supported).")
         self.input['preview'].SetToolTip("Values may be set dynamically, a preview is shown here. Note that generated "
-                                         "UIDs shown here will be different than the final value.")
+                                         "UIDs will be different than the final value if no entropy source is "
+                                         "provided.")
         if is_mac():
             self.input['preview'].SetBackgroundColour((230, 230, 230))
 
@@ -364,8 +366,9 @@ class MainFrame(wx.Frame):
         if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
-            columns = self.data_table.columns
+            columns = self.data_table.columns + ['Options Key']
             data = {columns[i]: [value] for i, value in enumerate(row)}
+            columns.pop(-1)
             self.data_table.set_data(data, columns)
         self.data_table.set_column_widths(auto=True)
 

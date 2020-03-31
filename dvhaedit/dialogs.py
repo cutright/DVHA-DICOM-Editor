@@ -427,6 +427,8 @@ class AdvancedSettings(wx.Dialog):
         self.combo_box['dicom_prefix'].SetItems(sorted(list(self.options.prefix_dict)))
         self.combo_box['dicom_prefix'].SetValue(self.options.prefix)
 
+        self.text_ctrl['entropy_source'].SetValue(self.options.entropy_source)
+
         self.combo_box['rand_digits'].SetItems([str(i+1) for i in range(15)])
         self.combo_box['rand_digits'].SetValue(str(self.options.rand_digits))
 
