@@ -25,7 +25,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     save_csv_to_file, load_csv_from_file, get_window_size
 
 
-VERSION = '0.3dev2'
+VERSION = '0.3rc1'
 
 
 class MainFrame(wx.Frame):
