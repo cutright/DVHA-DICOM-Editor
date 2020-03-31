@@ -13,6 +13,7 @@ Apply dynamic value functions
 from os import sep
 from os.path import normpath, splitext
 from pydicom.uid import generate_uid
+from secrets import randbelow
 
 
 class ValueGenerator:
@@ -27,6 +28,7 @@ class ValueGenerator:
         self.tag = tag
         self.enum_instances = {'file': {}, 'value': {}}
         self.uids = {'file': {}, 'value': {}}
+        self.rand = {'file': {}, 'value': {}}
         self.data_sets = {}
         self.file_paths = []
         self.func_call = []
@@ -34,7 +36,7 @@ class ValueGenerator:
         if value is not None and tag is not None:
             self.set_func_call_dict()
 
-        self.functions = ['file', 'val', 'fenum', 'venum', 'fuid', 'vuid']
+        self.functions = ['file', 'val', 'fenum', 'venum', 'fuid', 'vuid', 'frand', 'vrand']
         self.func_map = {f: getattr(self, f) for f in self.functions}
 
     def __call__(self, data_sets):
@@ -69,7 +71,7 @@ class ValueGenerator:
         """Collect all unique values for each of the enumerators"""
         self.enum_instances = {'file': {}, 'value': {}}
         for key, instances in self.enum_instances.items():
-            functions = [key[0] + f for f in ['enum', 'uid']]
+            functions = [key[0] + f for f in ['enum', 'uid', 'rand']]
             for index in self.get_parameters(functions):
                 if key == 'file':
                     enum = [self.file(index, f, True) for f in self.file_paths]
@@ -82,6 +84,12 @@ class ValueGenerator:
         for key, instances in self.enum_instances.items():
             for index in self.get_parameters(key[0] + 'uid'):
                 self.uids[key][index] = {i: generate_uid() for i in self.enum_instances[key][index]}
+
+        # set random numbers
+        self.rand = {'file': {}, 'value': {}}
+        for key, instances in self.enum_instances.items():
+            for index in self.get_parameters(key[0] + 'rand'):
+                self.rand[key][index] = {i: str(randbelow(100000)).zfill(5) for i in self.enum_instances[key][index]}
 
     #################################################################################
     # Getters
@@ -140,59 +148,81 @@ class ValueGenerator:
         ds = self.data_sets[self.file_paths.index(file_path)]
         return str(self.enum_instances['value'][index].index(ds.get_tag_value(self.tag)) + 1)
 
+    def fmethod(self, index, file_path, lookup):
+        """Process a file-like function (except enum)"""
+        value = self.file(index, file_path, True)
+        return lookup['file'][index][value]
+
+    def vmethod(self, index, file_path, lookup):
+        """Process a value-like function (except enum)"""
+        ds = self.data_sets[self.file_paths.index(file_path)]
+        value = ds.get_tag_value(self.tag)
+        return lookup['value'][index][value]
+
     def fuid(self, index, file_path):
-        """Process a file enumeration"""
-        fenum_value = self.file(index, file_path, True)
-        return self.uids['file'][index][fenum_value]
+        return self.fmethod(index, file_path, self.uids)
 
     def vuid(self, index, file_path):
-        """Process a value enumeration"""
-        ds = self.data_sets[self.file_paths.index(file_path)]
-        venum_value = ds.get_tag_value(self.tag)
-        return self.uids['value'][index][venum_value]
+        return self.vmethod(index, file_path, self.uids)
+
+    def frand(self, index, file_path):
+        return self.fmethod(index, file_path, self.rand)
+
+    def vrand(self, index, file_path):
+        return self.vmethod(index, file_path, self.rand)
 
 
-HELP_TEXT = """Dynamic Value Setting
----------------------
+HELP_TEXT = """--------------------------
+Dynamic Value Setting
+--------------------------
 Users can dynamically define new DICOM tag values based on file path or initial DICOM tag values.
 
+--------------------------
 AVAILABLE FUNCTIONS
+--------------------------
 File path / Tag Value:
-    file[n]: the n<sup>th</sup> component of the file path
-    val[n]: DICOM tag value, n=-1 being tag value, n=-2 the parent value, etc.
-Enumeration:
-    fenum[n]: an iterator based on file[n]
-    venum[n]: an iterator based on val[n]
-DICOM UID
-    fuid[n] and vuid[n]: same as fenum/venum, except the enumeration value is replaced with a DICOM compliant UID
+        file[n]: the n<sup>th</sup> component of the file path
+        val[n]: DICOM tag value, n=-1 being tag value, n=-2 the parent value, etc.
 
-NOTE: DICOM tags that are within sequences are not yet enabled, so val, venum, and vuid functions 
+Enumeration:
+        fenum[n]: an iterator based on file[n]
+        venum[n]: an iterator based on val[n]
+
+DICOM UID
+        fuid[n] and vuid[n]: same as fenum/venum, except the enumeration value is replaced with a DICOM compliant UID
+
+Random Number (w/ `secret.randbelow`)
+        frand[n] and vrand[n]: same as DICOM UID functions except the value is a random 5-digit integer
+
+NOTE: DICOM tags that are within sequences are not yet enabled, so val, venum, vuid, and vrand functions 
 currently ignore n, although n must still be an integer.
 
 
+--------------------------
 EXAMPLES
+--------------------------
 For a directory /some/file/path/ANON0001/ containing files file_1.dcm, file_2.dcm:
 Directory:
-    NOTE: file extensions are removed
-    some_string_*file[-1]*
-        some_string_file_1
-        some_string_file_2
-    *file[-2]*_AnotherString
-        ANON0001_AnotherString
-        ANON0001_AnotherString
+        NOTE: file extensions are removed
+        some_string_*file[-1]*
+                    some_string_file_1
+                    some_string_file_2
+        *file[-2]*_AnotherString
+                    ANON0001_AnotherString
+                    ANON0001_AnotherString
 File Enumeration:
-    some_string_*fenum[-1]*
-        some_string_1
-        some_string_2
-    *fenum[-2]*_AnotherString
-        1_AnotherString
-        1_AnotherString
+        some_string_*fenum[-1]*
+                    some_string_1
+                    some_string_2
+        *fenum[-2]*_AnotherString
+                1_AnotherString
+                1_AnotherString
 Value Enumeration:
-    NOTE: Assume each file has the same StudyInstanceUID but different SOPInstanceUIDs
-    *file[-2]*_*venum[-1]* used with SOPInstanceUID tag
-        ANON0001_1
-        ANON0001_2
-    *file[-2]*_*venum[-1]* used with StudyInstanceUID tag
-        ANON0001_1
-        ANON0001_1
+        NOTE: Assume each file has the same StudyInstanceUID but different SOPInstanceUIDs
+        *file[-2]*_*venum[-1]* used with SOPInstanceUID tag
+                ANON0001_1
+                ANON0001_2
+        *file[-2]*_*venum[-1]* used with StudyInstanceUID tag
+                ANON0001_1
+                ANON0001_1
 """

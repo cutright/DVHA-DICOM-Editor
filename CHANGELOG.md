@@ -1,5 +1,9 @@
 # Change log of DVHA DICOM Editor
 
+v0.4 (TBD)
+--------------------
+ - Random number generator functions: `vrand` and `frand`
+
 v0.3 (2020.03.31)
 --------------------
  - Catch tag edit exceptions, display error log in window

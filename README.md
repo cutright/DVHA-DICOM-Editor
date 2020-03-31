@@ -46,8 +46,10 @@ Users can dynamically define new DICOM tag values based on file path or initial 
     * `venum[n]`: an iterator based on `val[n]` 
 * DICOM UID
     * `fuid[n]` and `vuid[n]`: same as `fenum`/`venum`, except the enumeration value is replaced with a DICOM compliant UID
+* Random Number (w/ `secret.randbelow`)
+    * `frand[n]` and `vrand[n]`: same as DICOM UID functions except the value is a random 5-digit integer
 
-**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, and `vuid` functions 
+**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, `vuid`, and `vrand` functions 
 currently ignore `n`, although n must still be an integer.
 
 ### Examples
