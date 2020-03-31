@@ -207,7 +207,7 @@ class TagSearchDialog(wx.Dialog):
             self.parent.input['tag_group'].SetValue(tag.group)
             self.parent.input['tag_element'].SetValue(tag.element)
             self.parent.update_init_value()
-            self.parent.update_description()
+            self.parent.update_keyword()
 
     def on_double_click(self, evt):
         """Treat double-click the same as selecting a row then clicking Select"""

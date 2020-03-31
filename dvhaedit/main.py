@@ -56,13 +56,12 @@ class MainFrame(wx.Frame):
         self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
         self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
-        columns = ['Tag', 'Description', 'Value', 'Value Type', 'Options Key']
+        columns = ['Tag', 'Keyword', 'Value', 'Value Type', 'Index']
         data = {c: [''] for c in columns}
-        columns.pop(-1)
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 5)
 
-        keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'selected_file',
+        keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'keyword', 'selected_file',
                 'modality', 'prepend_file_name', 'add', 'search', 'value_rep', 'preview']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
@@ -105,9 +104,9 @@ class MainFrame(wx.Frame):
 
         self.button['search'].SetToolTip("Search for DICOM tag based on keyword.")
 
-        self.label['description'].SetToolTip("If a description is not found, then the current tag could not be found "
-                                             "in any of the loaded DICOM Files or it is within a sequence "
-                                             "(not yet supported).")
+        self.label['keyword'].SetToolTip("If a keyword is not found, then the current tag could not be found "
+                                         "in any of the loaded DICOM Files or it is within a sequence "
+                                         "(not yet supported).")
         self.input['preview'].SetToolTip("Values may be set dynamically, a preview is shown here. Note that generated "
                                          "UIDs will be different than the final value if no entropy source is "
                                          "provided.")
@@ -196,7 +195,7 @@ class MainFrame(wx.Frame):
         sizer_edit = wx.BoxSizer(wx.HORIZONTAL)
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
                               for key in ['tag_group', 'tag_element', 'value', 'value_type', 'add', 'search']}
-        sizer_value_description = wx.BoxSizer(wx.VERTICAL)
+        sizer_value_keyword = wx.BoxSizer(wx.VERTICAL)
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.HORIZONTAL)
         sizer_output_dir_inner_wrapper = wx.BoxSizer(wx.VERTICAL)
@@ -227,17 +226,17 @@ class MainFrame(wx.Frame):
             sizer_edit.Add(sizer_edit_widgets[key], proportion, wx.EXPAND | wx.ALL, 5)
         sizer_edit_wrapper.Add(sizer_edit, 0, wx.EXPAND | wx.ALL, 5)
 
-        sizer_value_description.Add(self.label['value'], 0, wx.LEFT, 5)
+        sizer_value_keyword.Add(self.label['value'], 0, wx.LEFT, 5)
         row_sizer_value_help = wx.BoxSizer(wx.HORIZONTAL)
         row_sizer_value_help.Add(self.input['value'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
         row_sizer_value_help.Add(self.button['value_help'], 0, wx.LEFT | wx.RIGHT, 5)
         row_sizer_value_help.Add(self.button['advanced'], 0, wx.LEFT | wx.RIGHT, 5)
-        sizer_value_description.Add(row_sizer_value_help, 1, wx.EXPAND, 5)
-        sizer_value_description.Add(self.label['description'], 0, wx.TOP | wx.LEFT, 5)
-        sizer_value_description.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 5)
-        sizer_value_description.Add(self.label['preview'], 0, wx.BOTTOM | wx.LEFT, 5)
-        sizer_value_description.Add(self.input['preview'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
-        sizer_edit_wrapper.Add(sizer_value_description, 0, wx.EXPAND | wx.ALL, 5)
+        sizer_value_keyword.Add(row_sizer_value_help, 1, wx.EXPAND, 5)
+        sizer_value_keyword.Add(self.label['keyword'], 0, wx.TOP | wx.LEFT, 5)
+        sizer_value_keyword.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 5)
+        sizer_value_keyword.Add(self.label['preview'], 0, wx.BOTTOM | wx.LEFT, 5)
+        sizer_value_keyword.Add(self.input['preview'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+        sizer_edit_wrapper.Add(sizer_value_keyword, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_edit_wrapper.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 10)
         for key in ['delete', 'select_all', 'deselect_all', 'save_template', 'load_template']:
@@ -297,10 +296,10 @@ class MainFrame(wx.Frame):
         return type_(value)
 
     @property
-    def description(self):
+    def keyword(self):
         for file_path in self.file_paths:
             try:
-                return self.ds[file_path].get_tag_name(self.tag.tag)
+                return self.ds[file_path].get_tag_keyword(self.tag.tag)
             except Exception:
                 pass
         return 'Not Found'
@@ -356,19 +355,19 @@ class MainFrame(wx.Frame):
 
     def on_add(self, *evt):
         """Add a tag edit"""
-        options_key = 0 if not list(self.all_options) else max(list(self.all_options)) + 1
+        keys_int = [int(key) for key in list(self.all_options)]
+        options_key = '0' if not keys_int else str(max(keys_int) + 1)
         self.all_options[options_key] = deepcopy(self.current_options)
         row = [str(self.tag),
-               self.description,
+               self.keyword,
                self.input['value'].GetValue(),
                self.input['value_type'].GetValue(),
                options_key]
         if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
-            columns = self.data_table.columns + ['Options Key']
+            columns = self.data_table.columns
             data = {columns[i]: [value] for i, value in enumerate(row)}
-            columns.pop(-1)
             self.data_table.set_data(data, columns)
         self.data_table.set_column_widths(auto=True)
 
@@ -376,7 +375,7 @@ class MainFrame(wx.Frame):
             self.input[key].SetValue('')
 
         self.input['tag_group'].SetFocus()
-        self.update_description()
+        self.update_keyword()
         self.update_save_template_enable()
         self.update_save_dicom_enable()
 
@@ -414,7 +413,7 @@ class MainFrame(wx.Frame):
             self.input['tag_group'].SetValue(group)
             self.input['tag_element'].SetValue(element)
             self.input['value_type'].SetValue(selected_data[0][3])
-            self.update_description()
+            self.update_keyword()
             self.update_init_value()
             self.update_preview()
 
@@ -443,11 +442,17 @@ class MainFrame(wx.Frame):
             if not AskYesNo(self, "Directory contents have changed. Continue anyway?").run:
                 return
 
-        error_log = self.apply_edits()  # Edits the loaded pydicom datasets
+        error_log, history = self.apply_edits()  # Edits the loaded pydicom datasets
         if error_log:
             ViewErrorLog(error_log)
             if not AskYesNo(self, "Continue writing DICOM files anyway?").run:
                 return
+
+        # Sync Referenced tags
+        for keyword in list(history):
+            for old_value, new_value in history[keyword].items():
+                for ds in self.ds.values():
+                    ds.sync_referenced_tag(keyword, old_value, new_value)
 
         if self.set_output_paths(check_only=True):
             msg = "You will overwrite files with this action. Continue?"
@@ -477,7 +482,7 @@ class MainFrame(wx.Frame):
         if keycode == wx.WXK_TAB:
             self.on_tab_key(evt)
         elif evt.GetEventObject() in {self.input['tag_group'], self.input['tag_element']}:
-            self.update_description()
+            self.update_keyword()
         evt.Skip()
 
     def on_tab_key(self, evt):
@@ -500,7 +505,7 @@ class MainFrame(wx.Frame):
                 index -= 1
         self.input_text_obj[index].SetFocus()
         self.update_save_dicom_enable()
-        self.update_description()
+        self.update_keyword()
         if obj == self.input['in_dir']:
             self.update_init_value()
 
@@ -511,7 +516,7 @@ class MainFrame(wx.Frame):
         if keycode == wx.WXK_RETURN:
             self.on_enter_key_dir(obj)
             if obj == self.input['in_dir']:
-                self.update_description()
+                self.update_keyword()
                 self.update_init_value()
         else:
             evt.Skip()
@@ -617,10 +622,10 @@ class MainFrame(wx.Frame):
         modality = self.ds[self.file_paths[self.selected_file]].modality if self.file_paths else ''
         self.label['modality'].SetLabel('Modality: ' + modality)
 
-    def update_description(self):
-        """Update Description in the Tag Editor based on the current Tag and currently selected file"""
-        description = self.description if self.group and self.element else ''
-        self.label['description'].SetLabel("Description: %s" % description)
+    def update_keyword(self):
+        """Update Keyword in the Tag Editor based on the current Tag and currently selected file"""
+        keyword = self.keyword if self.group and self.element else ''
+        self.label['keyword'].SetLabel("Keyword: %s" % keyword)
         self.update_tag_type()
         self.update_vr()
 
@@ -732,12 +737,17 @@ class MainFrame(wx.Frame):
     def apply_edits(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
         error_log = []
+        history = {}
         for row in range(self.data_table.row_count):
 
             row_data = self.data_table.get_row(row)
             group = row_data[0].split(',')[0][1:].strip()
             element = row_data[0].split(',')[1][:-1].strip()
             tag = Tag(group, element)
+
+            keyword = row_data[1]
+            if keyword not in list(history):
+                history[keyword] = {}
 
             value_str = row_data[2]
             value_type = get_type(row_data[3])
@@ -746,17 +756,17 @@ class MainFrame(wx.Frame):
             values_dict = value_gen(self.ds)
 
             for file_path, ds in self.ds.items():
-
                 try:
-                    value = value_type(values_dict[file_path])
-                    ds.edit_tag(tag.tag, value)
+                    new_value = value_type(values_dict[file_path])
+                    old_value, _ = ds.edit_tag(tag.tag, new_value)
+                    history[keyword][old_value] = new_value
                 except Exception as e:
                     err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
                     value = value_str if value_str else '[empty value]'
                     error_log.append("Directory: %s\nFile: %s\n\tAttempt to edit %s to new value: %s\n\t%s\n" %
                                      (dirname(file_path), basename(file_path), tag, value, err_msg))
 
-        return '\n'.join(error_log)
+        return '\n'.join(error_log), history
 
     def set_output_paths(self, check_only=False):
         """

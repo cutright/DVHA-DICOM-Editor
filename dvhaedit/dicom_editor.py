@@ -40,7 +40,26 @@ class DICOMEditor:
         :type tag: Tag
         :param new_value: new value of the DICOM tag
         """
+        old_value = self.dcm[tag].value
         self.dcm[tag].value = new_value
+        return old_value, self.dcm[tag].value
+
+    def sync_referenced_tag(self, keyword, old_value, new_value):
+        """
+        Check if there is a Referenced tag with matching value, then set to new_value if so
+        :param keyword: DICOM tag keyword
+        :type keyword: str
+        :param old_value: if Referenced+keyword tag value is this value, update to new_value
+        :param new_value: new value of tag if connected
+        """
+        tag = keyword_dict.get("Referenced%s" % keyword)
+        if tag is not None:
+            try:
+                value = self.get_tag_value(tag)
+            except KeyError:
+                return
+            if value == old_value:
+                self.edit_tag(tag, new_value)
 
     def get_tag_value(self, tag):
         """
@@ -50,13 +69,13 @@ class DICOMEditor:
         """
         return self.dcm[tag].value
 
-    def get_tag_name(self, tag):
+    def get_tag_keyword(self, tag):
         """
         Get the DICOM tag attribute (name)
         :param tag: the DICOM tag of interest
         :type tag: Tag
         """
-        return self.dcm[tag].name
+        return self.dcm[tag].keyword
 
     def get_tag_type(self, tag):
         """
