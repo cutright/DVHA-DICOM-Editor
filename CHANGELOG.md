@@ -1,6 +1,6 @@
 # Change log of DVHA DICOM Editor
 
-v0.3 (TBD)
+v0.3 (2020.03.31)
 --------------------
  - Catch tag edit exceptions, display error log in window
  - Reorganized code so it is easier to follow, lots of comments added
