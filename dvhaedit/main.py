@@ -40,6 +40,7 @@ class MainFrame(wx.Frame):
         # Create GUI widgets
         keys = ['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
         self.input = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in keys}
+        self.input['preview'] = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_READONLY)
         self.input['selected_file'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input_text_obj = [self.input[key] for key in keys]  # use for text event binding and focusing
@@ -56,7 +57,7 @@ class MainFrame(wx.Frame):
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'description', 'selected_file',
-                'modality', 'prepend_file_name', 'add', 'search', 'value_rep']
+                'modality', 'prepend_file_name', 'add', 'search', 'value_rep', 'preview']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
         self.search_sub_folders = wx.CheckBox(self, wx.ID_ANY, "Search Sub-Folders")
@@ -94,12 +95,15 @@ class MainFrame(wx.Frame):
         self.label['add'].SetLabel(' ')
         self.label['search'].SetLabel(' ')
         self.label['value_rep'].SetLabel('Value Representation (VR): ')
+        self.label['value'].SetLabel('Enter New DICOM Tag Value Here: ')
 
         self.button['search'].SetToolTip("Search for DICOM tag based on keyword.")
 
         self.label['description'].SetToolTip("If a description is not found, then the current tag could not be found "
                                              "in any of the loaded DICOM Files or it is within a sequence "
                                              "(not yet supported).")
+        self.input['preview'].SetToolTip("Values may be set dynamically, a preview is shown here. Note that generated "
+                                         "UIDs shown here will be different than the final value.")
 
         for key in ['add', 'delete', 'save_dicom', 'save_template']:
             self.button[key].Disable()
@@ -194,8 +198,10 @@ class MainFrame(wx.Frame):
         sizer_input_dir.Add(self.input['in_dir'], 1, wx.EXPAND | wx.ALL, 5)
         sizer_input_dir.Add(self.button['in_browse'], 0, wx.ALL, 5)
         sizer_input_dir_wrapper.Add(sizer_input_dir, 0, wx.ALL | wx.EXPAND, 5)
-        sizer_input_dir_wrapper.Add(self.search_sub_folders, 0, wx.LEFT | wx.BOTTOM, 10)
-        sizer_input_file.Add(self.label['files_found'], 0, wx.ALL, 5)
+        row_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        row_sizer.Add(self.label['files_found'], 1, wx.EXPAND, 0)
+        row_sizer.Add(self.search_sub_folders, 0, wx.ALIGN_RIGHT, 0)
+        sizer_input_file.Add(row_sizer, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         sizer_input_file.Add(self.label['selected_file'], 0, wx.LEFT | wx.TOP, 5)
         sizer_input_file.Add(self.input['selected_file'], 0, wx.EXPAND | wx.LEFT | wx.BOTTOM, 5)
         sizer_input_file.Add(self.label['modality'], 0, wx.LEFT, 5)
@@ -215,6 +221,8 @@ class MainFrame(wx.Frame):
         sizer_value_description.Add(self.input['value'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
         sizer_value_description.Add(self.label['description'], 0, wx.TOP | wx.LEFT, 5)
         sizer_value_description.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 5)
+        sizer_value_description.Add(self.label['preview'], 0, wx.BOTTOM | wx.LEFT, 5)
+        sizer_value_description.Add(self.input['preview'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
         sizer_edit_wrapper.Add(sizer_value_description, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_edit_wrapper.Add(self.list_ctrl, 1, wx.EXPAND | wx.ALL, 10)
@@ -557,6 +565,10 @@ class MainFrame(wx.Frame):
     def update_add_enable(self, *evt):
         enable = len(self.file_paths) > 0 and bool(self.group) and bool(self.element) and self.value_is_valid
         self.button['add'].Enable(enable)
+        if enable:
+            self.update_preview()
+        else:
+            self.input['preview'].SetValue('')
 
     def update_combobox_files(self):
         """Update the combobox with the file names found in the current in directory"""
@@ -602,6 +614,16 @@ class MainFrame(wx.Frame):
     def update_vr(self):
         value = self.tag.vr if self.group and self.element else ''
         self.label['value_rep'].SetLabel("Value Representation (VR): %s" % value)
+
+    def update_preview(self):
+        """Apply the tag edits to every file in self.ds, return any errors"""
+        tag = self.tag
+        value_str = self.value
+        value_gen = ValueGenerator(value_str, tag.tag)
+        file = self.file_paths[self.selected_file]
+        value = value_gen(self.ds)[file]
+
+        self.input['preview'].SetValue(value)
 
     #################################################################################
     # Data updaters
