@@ -290,7 +290,8 @@ class ProgressFrame(wx.Dialog):
         ProgressFrameWorker(*self.worker_args)
 
     def __set_properties(self):
-        self.SetMinSize((700, 100))
+        width, _ = get_window_size(0.4, 1)
+        self.SetMinSize((width, 100))
 
     def __do_subscribe(self):
         pub.subscribe(self.update, "progress_update")
