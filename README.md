@@ -32,17 +32,20 @@ Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releas
 
 Dynamic Value Setting
 ---------
-Users can dynamically define DICOM tag values with one of the functions below, which are denoted by asterisk-pairs.
+Users can dynamically define new DICOM tag values based on file path or initial DICOM tag values.
 
-Available functions:
-* `file[n]`: insert the n<sup>th</sup> component of the file path
-* `fenum[n]`: insert an iterator based on the  n<sup>th</sup> component of the file path
-* `fuid[n]`: same as fenum, except the enumeration value is replaced with a DICOM compliant UID
-* `val[n]`: insert a value based on the tag value, n=-1 being tag value, n=-2 the parent value, etc.
-* `venum[n]`: insert an iterator based on the tag value, n=-1 being tag value, n=-2 the parent value, etc. 
-* `vuid[n]`: same as venum, except the enumeration value is replaced with a DICOM compliant UID  
+### Available Functions
+* File path / Tag Value:
+    * `file[n]`: the n<sup>th</sup> component of the file path
+    * `val[n]`: DICOM tag value, n=-1 being tag value, n=-2 the parent value, etc.
+* Enumeration:
+    * `fenum[n]`: an iterator based on `file[n]`
+    * `venum[n]`: an iterator based on `val[n]` 
+* DICOM UID
+    * `fuid[n]` and `vuid[n]`: same as `fenum`/`venum`, except the enumeration value is replaced with a DICOM compliant UID
 
-(NOTE: only n=-1 is *currently* supported for `val`, `venum`, and `vuid`)
+**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, and `fuid` functions 
+currently ignore `n`, although n must still be an integer.
 
 ### Examples
 For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file_2.dcm`:
@@ -69,6 +72,3 @@ For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file
     * `*file[-2]*_*venum[-1]*` used with StudyInstanceUID tag
         * ANON0001_1
         * ANON0001_1
-
-
-This feature is still in development. Check back soon for more features.

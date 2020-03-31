@@ -22,7 +22,7 @@ from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialo
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    save_csv_to_file, load_csv_from_file
+    save_csv_to_file, load_csv_from_file, get_window_size
 
 
 VERSION = '0.3dev2'
@@ -241,6 +241,7 @@ class MainFrame(wx.Frame):
 
         sizer_wrapper.Add(sizer_main, 1, wx.EXPAND | wx.ALL, 5)
 
+        self.SetMinSize(get_window_size(0.35, 0.8))
         self.SetSizer(sizer_wrapper)
         self.Fit()
         self.Center()
@@ -513,7 +514,7 @@ class MainFrame(wx.Frame):
         """Set directory TextCtrl background to orange if directory is invalid"""
         obj = evt.GetEventObject()
         orange = (255, 153, 51, 255)
-        color = wx.WHITE if isdir(obj.GetValue()) else orange  # else orange
+        color = wx.WHITE if isdir(obj.GetValue()) else orange
         if color != obj.GetBackgroundColour():
             obj.SetBackgroundColour(color)
             self.update_save_dicom_enable()
