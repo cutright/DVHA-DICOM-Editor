@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# dvhaedit_app.py
+# paths.py
 """
-Script to start DVHA DICOM Editor
+A collection of directories and paths updated with the script directory
 """
 # Copyright (c) 2020 Dan Cutright
 # This file is part of DVH Analytics, released under a BSD license.
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
-import dvhaedit.main
+from os.path import join, dirname
 
-if __name__ == "__main__":
-    dvhaedit.main.start()
+SCRIPT_DIR = dirname(__file__)
+LICENSE_PATH = join(SCRIPT_DIR, 'LICENSE.txt')

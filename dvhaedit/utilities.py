@@ -10,10 +10,10 @@ General utilities borrowed from DVH Analytics
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVH-Analytics
 
-
 import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
+import re
 
 
 def get_file_paths(start_path, search_sub_folders=False, extension=None):
@@ -145,16 +145,14 @@ def load_csv_from_file(abs_file_path):
     return columns, data
 
 
-class ErrorDialog:
-    def __init__(self, parent, message, caption, flags=wx.ICON_ERROR | wx.OK | wx.OK_DEFAULT):
-        """
-        This class allows error messages to be called with a one-liner else-where
-        :param parent: wx parent object
-        :param message: error message
-        :param caption: error title
-        :param flags: flags for wx.MessageDialog
-        """
-        self.dlg = wx.MessageDialog(parent, message, caption, flags)
-        self.dlg.Center()
-        self.dlg.ShowModal()
-        self.dlg.Destroy()
+def remove_non_alphanumeric(some_string):
+    """
+    Remove non-alphanumeric characters from a string
+    https://stackoverflow.com/questions/1276764/stripping-everything-but-alphanumeric-chars-from-a-string-in-python
+    Accessed: Mar 27, 2020
+    :param some_string: any string
+    :type some_string: str
+    :return: the provided string less any non-alphanumeric characters
+    """
+    pattern = re.compile(r'[\W_]+')
+    return pattern.sub('', some_string).replace('_', '')
