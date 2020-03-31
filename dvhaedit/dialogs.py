@@ -430,6 +430,8 @@ class AdvancedSettings(wx.Dialog):
         self.combo_box['rand_digits'].SetItems([str(i+1) for i in range(15)])
         self.combo_box['rand_digits'].SetValue(str(self.options.rand_digits))
 
+        self.SetMinSize(get_window_size(0.4, 0.2))
+
     def __do_layout(self):
         sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
         sizer_main = wx.BoxSizer(wx.VERTICAL)
@@ -437,21 +439,21 @@ class AdvancedSettings(wx.Dialog):
         sizer_rand = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Random Number Generator"), wx.VERTICAL)
         sizer_buttons = wx.BoxSizer(wx.HORIZONTAL)
 
-        sizer_dicom.Add(self.label['dicom_prefix'], 0, 0, 0)
-        sizer_dicom.Add(self.combo_box['dicom_prefix'], 0, 0, 0)
-        sizer_dicom.Add(self.label['entropy_source'], 0, 0, 0)
+        sizer_dicom.Add(self.label['dicom_prefix'], 0, wx.EXPAND, 0)
+        sizer_dicom.Add(self.combo_box['dicom_prefix'], 0, wx.EXPAND, 0)
+        sizer_dicom.Add(self.label['entropy_source'], 0, wx.EXPAND, 0)
         sizer_dicom.Add(self.text_ctrl['entropy_source'], 0, wx.EXPAND, 0)
-        sizer_main.Add(sizer_dicom, 0, wx.ALL, 10)
+        sizer_main.Add(sizer_dicom, 1, wx.EXPAND, wx.ALL, 5)
 
-        sizer_rand.Add(self.label['rand_digits'], 0, 0, 0)
+        sizer_rand.Add(self.label['rand_digits'], 0, wx.EXPAND, 0)
         sizer_rand.Add(self.combo_box['rand_digits'], 0, 0, 0)
-        sizer_main.Add(sizer_rand, 0, wx.ALL, 10)
+        sizer_main.Add(sizer_rand, 0, wx.EXPAND | wx.ALL, 0)  # Has 5 border built-in???
 
         sizer_buttons.Add(self.button['ok'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
         sizer_buttons.Add(self.button['cancel'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
         sizer_main.Add(sizer_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
 
-        sizer_wrapper.Add(sizer_main, 0, wx.ALL, 5)
+        sizer_wrapper.Add(sizer_main, 0, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(sizer_wrapper)
         self.Fit()
