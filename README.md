@@ -38,7 +38,7 @@ python dvhaedit_app.py
 Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 
 Dynamic Value Setting
---------------------------
+------------------------------------------------------------------------------
 Users can dynamically define new DICOM tag values based on file path or initial DICOM tag values.
 
 ### Available Functions

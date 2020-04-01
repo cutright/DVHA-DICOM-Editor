@@ -57,17 +57,24 @@ class DICOMEditor:
         """
         tag = keyword_dict.get("Referenced%s" % keyword)
         if tag is not None:
+            # Edit top-level tag value of dataset's original value is provided old_value
+            # self.init_tag_values only contain edited tag values
             if self.init_tag_values.get(tag) == old_value or \
                     (tag in list(self.dcm) and self.get_tag_value(tag) == old_value):
                 self.edit_tag(tag, new_value)
-            keys = [k for k in self.dcm.trait_names() if k.startswith('Referenced')]
-            for key in keys:
-                if type(getattr(self.dcm, key)) is pydicom.sequence.Sequence:
-                    for seq_item in getattr(self.dcm, key):
-                        seq_keys = [sk for sk in seq_item.trait_names() if sk.startswith('Referenced')]
-                        for sk in seq_keys:
-                            if getattr(seq_item, sk) == old_value and sk == 'Referenced' + keyword:
-                                setattr(seq_item, sk, new_value)
+
+            # Find all top-level sequences with names that begin with 'Referenced'
+            # iterate through all keywords that start with 'Referenced', of each sequence
+            # if value matches old_value and its tag matches 'Referenced'+keyword, set to new_value
+            for key in self.dcm.trait_names():
+                if key.startswith('Referenced'):
+                    dcm_item = getattr(self.dcm, key)
+                    if isinstance(dcm_item, pydicom.sequence.Sequence):
+                        for seq_item in dcm_item:
+                            seq_keys = [sk for sk in seq_item.trait_names() if sk.startswith('Referenced')]
+                            for sk in seq_keys:
+                                if getattr(seq_item, sk) == old_value and sk == 'Referenced' + keyword:
+                                    setattr(seq_item, sk, new_value)
 
     def get_tag_value(self, tag):
         """

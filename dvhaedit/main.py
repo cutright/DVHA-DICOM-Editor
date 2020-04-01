@@ -597,7 +597,6 @@ class MainFrame(wx.Frame):
         label = "Files Found: %s" % found
         self.label['files_found'].SetLabel(label)
         self.update_add_enable()
-        self.button['search'].Enable(found > 0)
 
     def update_add_enable(self, *evt):
         enable = len(self.file_paths) > 0 and bool(self.group) and bool(self.element) and self.value_is_valid
@@ -608,6 +607,7 @@ class MainFrame(wx.Frame):
             self.update_preview()
         else:
             self.input['preview'].SetValue('')
+        self.update_keyword()
 
     def update_combobox_files(self):
         """Update the combobox with the file names found in the current in directory"""
@@ -660,8 +660,7 @@ class MainFrame(wx.Frame):
         value_str = self.value
         value_gen = ValueGenerator(value_str, tag.tag, self.current_options)
         file = self.file_paths[self.selected_file]
-        value = value_gen(self.ds)[file]
-
+        value = value_gen(self.ds)[file] if file in self.ds.keys() else ''
         self.input['preview'].SetValue(value)
 
     #################################################################################

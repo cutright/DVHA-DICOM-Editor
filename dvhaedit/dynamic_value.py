@@ -193,4 +193,5 @@ class ValueGenerator:
         return lookup['value'][index][value]
 
 
-HELP_TEXT = open(DYNAMIC_VALUE_HELP, 'r').read()
+with open(DYNAMIC_VALUE_HELP, 'r') as doc:
+    HELP_TEXT = doc.read()
