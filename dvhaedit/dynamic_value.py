@@ -85,7 +85,7 @@ class ValueGenerator:
         prefix = self.options.prefix if hasattr(self.options, 'prefix') else None
         if prefix == '':
             prefix = None
-        entropy_srcs = self.options.entropy_source if hasattr(self.options, 'entropy_source') else None
+        entropy_srcs = [self.options.entropy_source] if hasattr(self.options, 'entropy_source') else None
         if entropy_srcs == '':
             entropy_srcs = None
         self.uids = {'file': {}, 'value': {}}

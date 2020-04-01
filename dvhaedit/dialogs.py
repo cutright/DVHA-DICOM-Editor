@@ -479,7 +479,7 @@ class AdvancedSettings(wx.Dialog):
         self.options.prefix = new_value
 
     def set_entropy(self):
-        self.options.entropy_source = [self.text_ctrl['entropy_source'].GetValue()]
+        self.options.entropy_source = self.text_ctrl['entropy_source'].GetValue()
 
     def set_rand_digits(self):
         self.options.rand_digits = int(self.combo_box['rand_digits'].GetValue())
