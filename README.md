@@ -38,7 +38,7 @@ python dvhaedit_app.py
 Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 
 Dynamic Value Setting
----------
+--------------------------
 Users can dynamically define new DICOM tag values based on file path or initial DICOM tag values.
 
 ### Available Functions
@@ -49,12 +49,13 @@ Users can dynamically define new DICOM tag values based on file path or initial 
     * `fenum[n]`: an iterator based on `file[n]`
     * `venum[n]`: an iterator based on `val[n]` 
 * DICOM UID
-    * `fuid[n]` and `vuid[n]`: same as `fenum`/`venum`, except the enumeration value is replaced with a DICOM compliant UID
+    * `fuid[n]` and `vuid[n]`: same as `fenum`/`venum`, except the enumeration value is replaced with a 
+    DICOM compliant UID
 * Random Number (w/ `secret.randbelow`)
-    * `frand[n]` and `vrand[n]`: same as DICOM UID functions except the value is a random 5-digit integer
+    * `frand[n]` and `vrand[n]`: same as DICOM UID functions except the value is a random integer
 
-**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, `vuid`, and `vrand` functions 
-currently ignore `n`, although n must still be an integer.
+**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, `vuid`, and 
+`vrand` functions currently ignore `n`, although n must still be an integer.
 
 ### Examples
 For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file_2.dcm`:
@@ -74,7 +75,7 @@ For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file
         * 1_AnotherString
         * 1_AnotherString
 * *Value Enumeration*:
-    * NOTE: Assume each file has the same StudyInstanceUID but different SOPInstanceUIDs
+    * NOTE: Assume these two files have the same StudyInstanceUID but different SOPInstanceUIDs
     * `*file[-2]*_*venum[-1]*` used with SOPInstanceUID tag
         * ANON0001_1
         * ANON0001_2

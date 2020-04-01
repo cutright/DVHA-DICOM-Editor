@@ -14,3 +14,4 @@ from os.path import join, dirname
 
 SCRIPT_DIR = dirname(__file__)
 LICENSE_PATH = join(SCRIPT_DIR, 'LICENSE.txt')
+DYNAMIC_VALUE_HELP = join(SCRIPT_DIR, 'dynamic_value_help.txt')

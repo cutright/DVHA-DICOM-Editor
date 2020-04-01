@@ -14,6 +14,7 @@ import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
 import re
+from dvhaedit.paths import SCRIPT_DIR
 
 
 def get_file_paths(start_path, search_sub_folders=False, extension=None):
@@ -156,3 +157,37 @@ def remove_non_alphanumeric(some_string):
     """
     pattern = re.compile(r'[\W_]+')
     return pattern.sub('', some_string).replace('_', '')
+
+
+def update_dynamic_value_help_txt(first_line_value='Dynamic Value Setting'):
+    """
+    Convert README.md file into plain text.
+    Designed to extract text specifically dynamic_value.HELP_TEXT
+    :param first_line_value: optionally ignore every line before this value is found
+    :type first_line_value: str
+    """
+    new_lines = ['--------------------------']
+    with open('README.md', 'r') as markdown:
+        first_line_found = False
+        for line in markdown:
+            if line.startswith(first_line_value):
+                first_line_found = True
+            if first_line_found:
+                append_divider = False
+                new_line = line.replace('\n', '')
+                if new_line.strip().startswith('* `'):
+                    new_line = new_line.replace('* ', '')
+                else:
+                    if new_line.startswith('### '):
+                        new_lines.append('--------------------------')
+                        append_divider = True
+                        new_line = new_line[4:].upper()
+                    new_line = new_line.replace('* ', '').replace('*', '')
+
+                new_line = new_line.replace(' ' * 4, ' ' * 8)  # double the indents
+                new_lines.append(new_line)
+                if append_divider:
+                    new_lines.append('--------------------------')
+
+    with open(join(SCRIPT_DIR, 'dynamic_value_help.txt'), 'w') as doc:
+        doc.write('\n'.join(new_lines))

@@ -14,6 +14,7 @@ from os import sep
 from os.path import normpath, splitext
 from pydicom.uid import generate_uid
 from secrets import randbelow
+from dvhaedit.paths import DYNAMIC_VALUE_HELP
 
 
 class ValueGenerator:
@@ -146,7 +147,11 @@ class ValueGenerator:
                 return splitext('/'.join(components[:index+1]))[0]
         return splitext(components[index])[0]
 
+    # The following function names, in this comment block, must match those found in self.functions,
+    # and have two input parameters: index and file_path
+
     def val(self, index, file_path):
+        """Process a value enumeration (index included for abstract use)"""
         ds = self.data_sets[self.file_paths.index(file_path)]
         return ds.get_tag_value(self.tag)
 
@@ -159,6 +164,23 @@ class ValueGenerator:
         ds = self.data_sets[self.file_paths.index(file_path)]
         return str(self.enum_instances['value'][index].index(ds.get_tag_value(self.tag)) + 1)
 
+    def fuid(self, index, file_path):
+        """Process file path based uid generator"""
+        return self.fmethod(index, file_path, self.uids)
+
+    def vuid(self, index, file_path):
+        """Process value based uid generator"""
+        return self.vmethod(index, file_path, self.uids)
+
+    def frand(self, index, file_path):
+        """Process file path based random number generator"""
+        return self.fmethod(index, file_path, self.rand)
+
+    def vrand(self, index, file_path):
+        """Process value based random number generator"""
+        return self.vmethod(index, file_path, self.rand)
+
+    # Helper functions for file and value type functions above, to reduce repeated code
     def fmethod(self, index, file_path, lookup):
         """Process a file-like function (except enum)"""
         value = self.file(index, file_path, True)
@@ -170,70 +192,5 @@ class ValueGenerator:
         value = ds.get_tag_value(self.tag)
         return lookup['value'][index][value]
 
-    def fuid(self, index, file_path):
-        return self.fmethod(index, file_path, self.uids)
 
-    def vuid(self, index, file_path):
-        return self.vmethod(index, file_path, self.uids)
-
-    def frand(self, index, file_path):
-        return self.fmethod(index, file_path, self.rand)
-
-    def vrand(self, index, file_path):
-        return self.vmethod(index, file_path, self.rand)
-
-
-HELP_TEXT = """--------------------------
-Dynamic Value Setting
---------------------------
-Users can dynamically define new DICOM tag values based on file path or initial DICOM tag values.
-
---------------------------
-AVAILABLE FUNCTIONS
---------------------------
-File path / Tag Value:
-        file[n]: the n<sup>th</sup> component of the file path
-        val[n]: DICOM tag value, n=-1 being tag value, n=-2 the parent value, etc.
-
-Enumeration:
-        fenum[n]: an iterator based on file[n]
-        venum[n]: an iterator based on val[n]
-
-DICOM UID
-        fuid[n] and vuid[n]: same as fenum/venum, except the enumeration value is replaced with a DICOM compliant UID
-
-Random Number (w/ `secret.randbelow`)
-        frand[n] and vrand[n]: same as DICOM UID functions except the value is a random 5-digit integer
-
-NOTE: DICOM tags that are within sequences are not yet enabled, so val, venum, vuid, and vrand functions 
-currently ignore n, although n must still be an integer.
-
-
---------------------------
-EXAMPLES
---------------------------
-For a directory /some/file/path/ANON0001/ containing files file_1.dcm, file_2.dcm:
-Directory:
-        NOTE: file extensions are removed
-        some_string_*file[-1]*
-                    some_string_file_1
-                    some_string_file_2
-        *file[-2]*_AnotherString
-                    ANON0001_AnotherString
-                    ANON0001_AnotherString
-File Enumeration:
-        some_string_*fenum[-1]*
-                    some_string_1
-                    some_string_2
-        *fenum[-2]*_AnotherString
-                1_AnotherString
-                1_AnotherString
-Value Enumeration:
-        NOTE: Assume each file has the same StudyInstanceUID but different SOPInstanceUIDs
-        *file[-2]*_*venum[-1]* used with SOPInstanceUID tag
-                ANON0001_1
-                ANON0001_2
-        *file[-2]*_*venum[-1]* used with StudyInstanceUID tag
-                ANON0001_1
-                ANON0001_1
-"""
+HELP_TEXT = open(DYNAMIC_VALUE_HELP, 'r').read()
