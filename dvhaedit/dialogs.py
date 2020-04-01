@@ -406,11 +406,11 @@ class AdvancedSettings(wx.Dialog):
 
         self.options = options
 
-        key_map = {'dicom_prefix': 'Prefix:', 'rand_digits': 'Digits:'}
+        key_map = {'dicom_prefix': 'Prefix:'}
         self.combo_box = {key: wx.ComboBox(self, wx.ID_ANY, "") for key in key_map.keys()}
         self.label = {key: wx.StaticText(self, wx.ID_ANY, value) for key, value in key_map.items()}
 
-        key_map = {'entropy_source': 'Entropy Source:'}
+        key_map = {'entropy_source': 'Entropy Source:', 'rand_digits': 'Digits:'}
         self.text_ctrl = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in key_map.keys()}
         for key, value in key_map.items():
             self.label[key] = wx.StaticText(self, wx.ID_ANY, value)
@@ -419,6 +419,7 @@ class AdvancedSettings(wx.Dialog):
                        'cancel': wx.Button(self, wx.ID_CANCEL, 'Cancel')}
 
         self.__set_properties()
+        self.__do_bind()
         self.__do_layout()
 
         self.run()
@@ -429,10 +430,12 @@ class AdvancedSettings(wx.Dialog):
 
         self.text_ctrl['entropy_source'].SetValue(self.options.entropy_source)
 
-        self.combo_box['rand_digits'].SetItems([str(i+1) for i in range(15)])
-        self.combo_box['rand_digits'].SetValue(str(self.options.rand_digits))
+        self.text_ctrl['rand_digits'].SetValue(str(self.options.rand_digits))
 
         self.SetMinSize(get_window_size(0.4, 0.2))
+
+    def __do_bind(self):
+        self.Bind(wx.EVT_TEXT, self.update_ok_enable, id=self.text_ctrl['rand_digits'].GetId())
 
     def __do_layout(self):
         sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
@@ -448,7 +451,7 @@ class AdvancedSettings(wx.Dialog):
         sizer_main.Add(sizer_dicom, 1, wx.EXPAND, wx.ALL, 5)
 
         sizer_rand.Add(self.label['rand_digits'], 0, wx.EXPAND, 0)
-        sizer_rand.Add(self.combo_box['rand_digits'], 0, 0, 0)
+        sizer_rand.Add(self.text_ctrl['rand_digits'], 0, 0, 0)
         sizer_main.Add(sizer_rand, 0, wx.EXPAND | wx.ALL, 0)  # Has 5 border built-in???
 
         sizer_buttons.Add(self.button['ok'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
@@ -482,4 +485,11 @@ class AdvancedSettings(wx.Dialog):
         self.options.entropy_source = self.text_ctrl['entropy_source'].GetValue()
 
     def set_rand_digits(self):
-        self.options.rand_digits = int(self.combo_box['rand_digits'].GetValue())
+        self.options.rand_digits = int(self.text_ctrl['rand_digits'].GetValue())
+
+    def update_ok_enable(self, *evt):
+        self.button['ok'].Enable(self.is_rand_digit_valid())
+
+    def is_rand_digit_valid(self):
+        value = self.text_ctrl['rand_digits'].GetValue()
+        return value.isdigit() and 0 < int(value) <= 64

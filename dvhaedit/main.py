@@ -131,7 +131,7 @@ class MainFrame(wx.Frame):
         self.update_referenced_tags.SetValue(True)
         self.update_referenced_tags.SetToolTip("Automatically sync Referenced<tag> to new <tag> value to maintain "
                                                "file cross-file connections (e.g., keep RT-Structure connection to "
-                                               "image set).")
+                                               "RT-Plan).")
 
     def __add_menubar(self):
 
