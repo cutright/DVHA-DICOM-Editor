@@ -70,6 +70,8 @@ class MainFrame(wx.Frame):
 
         self.retain_rel_dir = wx.CheckBox(self, wx.ID_ANY, "Retain relative directory structure")
 
+        self.update_referenced_tags = wx.CheckBox(self, wx.ID_ANY, 'Update "Referenced" Tags')
+
         self.file_paths = []
         self.update_files_found()
         self.refresh_needed = False
@@ -90,6 +92,7 @@ class MainFrame(wx.Frame):
             checkbox.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, 0, ""))
         self.retain_rel_dir.SetToolTip("If unchecked, all new files will be placed in the output directory. "
                                        "Otherwise, the same relative directory structure will be used.")
+        self.retain_rel_dir.SetValue(True)
 
         self.button['in_browse'].SetLabel(u"Browse…")
         self.button['out_browse'].SetLabel(u"Browse…")
@@ -124,6 +127,11 @@ class MainFrame(wx.Frame):
 
         self.input['value_type'].SetItems(['str', 'float', 'int'])
         self.input['value_type'].SetValue('str')
+
+        self.update_referenced_tags.SetValue(True)
+        self.update_referenced_tags.SetToolTip("Automatically sync Referenced<tag> to new <tag> value to maintain "
+                                               "file cross-file connections (e.g., keep RT-Structure connection to "
+                                               "image set).")
 
     def __add_menubar(self):
 
@@ -256,9 +264,10 @@ class MainFrame(wx.Frame):
         sizer_output_dir_wrapper.Add(self.button['out_browse'], 0, wx.ALIGN_TOP | wx.TOP, 10)
         sizer_main.Add(sizer_output_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
-        sizer_app_buttons.Add(self.button['save_dicom'], 0, wx.ALL, 5)
-        sizer_app_buttons.Add(self.button['quit'], 0, wx.ALL, 5)
-        sizer_main.Add(sizer_app_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_app_buttons.Add(self.update_referenced_tags, 1, wx.EXPAND | wx.ALIGN_LEFT | wx.ALL, 5)
+        sizer_app_buttons.Add(self.button['save_dicom'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_app_buttons.Add(self.button['quit'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_main.Add(sizer_app_buttons, 0, wx.EXPAND | wx.ALL, 5)
 
         sizer_wrapper.Add(sizer_main, 1, wx.EXPAND | wx.ALL, 5)
 

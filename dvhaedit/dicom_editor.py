@@ -31,6 +31,8 @@ class DICOMEditor:
         else:
             self.dcm = dcm
 
+        self.init_tag_values = {}
+
         self.output_path = None
 
     def edit_tag(self, tag, new_value):
@@ -42,6 +44,7 @@ class DICOMEditor:
         """
         old_value = self.dcm[tag].value
         self.dcm[tag].value = new_value
+        self.init_tag_values[tag] = old_value
         return old_value, self.dcm[tag].value
 
     def sync_referenced_tag(self, keyword, old_value, new_value):
@@ -54,12 +57,17 @@ class DICOMEditor:
         """
         tag = keyword_dict.get("Referenced%s" % keyword)
         if tag is not None:
-            try:
-                value = self.get_tag_value(tag)
-            except KeyError:
-                return
-            if value == old_value:
+            if self.init_tag_values.get(tag) == old_value or \
+                    (tag in list(self.dcm) and self.get_tag_value(tag) == old_value):
                 self.edit_tag(tag, new_value)
+            keys = [k for k in self.dcm.trait_names() if k.startswith('Referenced')]
+            for key in keys:
+                if type(getattr(self.dcm, key)) is pydicom.sequence.Sequence:
+                    for seq_item in getattr(self.dcm, key):
+                        seq_keys = [sk for sk in seq_item.trait_names() if sk.startswith('Referenced')]
+                        for sk in seq_keys:
+                            if getattr(seq_item, sk) == old_value and sk == 'Referenced' + keyword:
+                                setattr(seq_item, sk, new_value)
 
     def get_tag_value(self, tag):
         """
