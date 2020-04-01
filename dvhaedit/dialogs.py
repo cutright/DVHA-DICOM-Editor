@@ -16,7 +16,7 @@ from queue import Queue
 from threading import Thread
 from time import sleep
 from dvhaedit.data_table import DataTable
-from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom, get_uid_prefixes
+from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
 from dvhaedit.dynamic_value import HELP_TEXT
 from dvhaedit.paths import LICENSE_PATH
 from dvhaedit.utilities import save_csv_to_file, get_window_size
