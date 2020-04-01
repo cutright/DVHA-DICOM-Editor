@@ -11,6 +11,7 @@ Classes used to edit pydicom datasets
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 import pydicom
+from pydicom.sequence import Sequence as DicomSequence
 from pydicom.datadict import keyword_dict, get_entry
 from pydicom._dicom_dict import DicomDictionary
 from pydicom._uid_dict import UID_dictionary
@@ -32,6 +33,7 @@ class DICOMEditor:
             self.dcm = dcm
 
         self.init_tag_values = {}
+        self.tree = {}
 
         self.output_path = None
 
@@ -69,20 +71,29 @@ class DICOMEditor:
             for key in self.dcm.trait_names():
                 if key.startswith('Referenced'):
                     dcm_item = getattr(self.dcm, key)
-                    if isinstance(dcm_item, pydicom.sequence.Sequence):
+                    if isinstance(dcm_item, DicomSequence):
                         for seq_item in dcm_item:
                             seq_keys = [sk for sk in seq_item.trait_names() if sk.startswith('Referenced')]
                             for sk in seq_keys:
                                 if getattr(seq_item, sk) == old_value and sk == 'Referenced' + keyword:
                                     setattr(seq_item, sk, new_value)
 
-    def get_tag_value(self, tag):
+    def get_tag_value(self, tag, address=None):
         """
         Get the current value of the provided DICOM tag
         :param tag: the DICOM tag of interest
         :type tag: Tag
+        :param address: if tag is within a sequence, an address is needed which is a list of [tag, index]
+        :type address: list
         """
-        return self.dcm[tag].value
+        if not address:
+            return self.dcm[tag].value
+
+        element = self.dcm
+        for sequence in address:
+            tag_, index_ = tuple(sequence)
+            element = element[tag_][index_]
+        return element[tag].value
 
     def get_tag_keyword(self, tag):
         """
@@ -120,6 +131,31 @@ class DICOMEditor:
             return str(self.dcm.Modality)
         except Exception:
             return 'Not Found'
+
+    def find_tag(self, tag):
+        """Find all instances of tag in the pydicom dataset, return tags and indices pointing to input tag"""
+        # address is a list of all values for tag, with its location
+        # each item in the list has a length equal to number of tags required to identify the value
+        # Example:
+        #   BeamMeterSet (300A, 0086) for RT PLan is accessed via FractionGroupSequence -> ReferencedBeamSequence
+        #   Therefore, each row in addresses will be:
+        #       [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index]]
+        # Addresses store the int representation of tag
+
+        addresses = []
+        self._find_tag_instances(tag, self.dcm, addresses)
+        return addresses
+
+    def _find_tag_instances(self, tag, data_set, addresses, parent=None):
+        """recursively walk through data_set sequences, collect values with the provided tag"""
+        if parent is None:
+            parent = []
+        for elem in data_set:
+            if hasattr(elem, 'tag') and elem.tag == tag:
+                addresses.append(parent)
+            elif hasattr(elem, 'VR') and elem.VR == 'SQ':
+                for i, seq_item in enumerate(elem):
+                    self._find_tag_instances(tag, seq_item, addresses, parent + [[int(elem.tag), i]])
 
 
 class Tag:

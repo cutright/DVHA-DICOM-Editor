@@ -27,7 +27,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     save_csv_to_file, load_csv_from_file, get_window_size, is_mac
 
 
-VERSION = '0.4dev1'
+VERSION = '0.4dev2'
 
 
 class MainFrame(wx.Frame):
@@ -52,9 +52,12 @@ class MainFrame(wx.Frame):
         keys = ['save_dicom', 'quit', 'in_browse', 'out_browse', 'add', 'delete', 'select_all', 'deselect_all',
                 'save_template', 'load_template', 'advanced']
         self.button = {key: wx.Button(self, wx.ID_ANY, key.replace('_', ' ').title()) for key in keys}
-        bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
+        bmp = wx.ArtProvider.GetBitmap(wx.ART_FIND, size=(16, 16))
         self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
+        bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
         self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
+        bmp = wx.ArtProvider.GetBitmap(wx.ART_FIND_AND_REPLACE, size=(16, 16))
+        self.button['link'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
         columns = ['Tag', 'Keyword', 'Value', 'Value Type', 'Index']
         data = {c: [''] for c in columns}
@@ -62,7 +65,7 @@ class MainFrame(wx.Frame):
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 5)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'keyword', 'selected_file',
-                'modality', 'prepend_file_name', 'add', 'search', 'value_rep', 'preview']
+                'modality', 'prepend_file_name', 'link', 'add', 'search', 'value_rep', 'preview']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
         self.search_sub_folders = wx.CheckBox(self, wx.ID_ANY, "Search Sub-Folders")
@@ -101,6 +104,7 @@ class MainFrame(wx.Frame):
         self.button['load_template'].SetLabel('Load')
 
         self.label['add'].SetLabel(' ')
+        self.label['link'].SetLabel(' ')
         self.label['search'].SetLabel(' ')
         self.label['value_rep'].SetLabel('Value Representation (VR): ')
         self.label['value'].SetLabel('Enter New DICOM Tag Value Here: ')
@@ -202,7 +206,7 @@ class MainFrame(wx.Frame):
         sizer_edit_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Tag Editor"), wx.VERTICAL)
         sizer_edit = wx.BoxSizer(wx.HORIZONTAL)
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
-                              for key in ['tag_group', 'tag_element', 'value', 'value_type', 'add', 'search']}
+                              for key in ['tag_group', 'tag_element', 'value', 'value_type', 'link', 'add', 'search']}
         sizer_value_keyword = wx.BoxSizer(wx.VERTICAL)
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.HORIZONTAL)
@@ -226,8 +230,8 @@ class MainFrame(wx.Frame):
         sizer_main.Add(sizer_input_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
         # Input Widgets
-        for key in ['search', 'tag_group', 'tag_element', 'value_type', 'add']:
-            obj = self.button if key in {'search', 'add'} else self.input
+        for key in ['search', 'tag_group', 'tag_element', 'value_type', 'link', 'add']:
+            obj = self.button if key in {'search', 'link', 'add'} else self.input
             sizer_edit_widgets[key].Add(self.label[key], 0, wx.EXPAND, 0)
             sizer_edit_widgets[key].Add(obj[key], 0, wx.EXPAND, 0)
             proportion = 'tag' in key
@@ -322,6 +326,10 @@ class MainFrame(wx.Frame):
         return self.input['selected_file'].GetSelection()
 
     @property
+    def selected_data_set(self):
+        return self.ds.get(self.file_paths[self.selected_file])
+
+    @property
     def data_table_has_data(self):
         return self.data_table.has_data and self.data_table.get_row(0)[0] != ''
 
@@ -387,6 +395,9 @@ class MainFrame(wx.Frame):
         self.update_keyword()
         self.update_save_template_enable()
         self.update_save_dicom_enable()
+
+    def on_link(self, *evt):
+        self.selected_data_set.find_tag(self.tag.tag)
 
     def on_search(self, *evt):
         TagSearchDialog(self)
@@ -620,11 +631,16 @@ class MainFrame(wx.Frame):
     def update_init_value(self):
         """Update Value in the Tag Editor based on the currently selected file"""
         if self.group and self.element:
+            ds = self.ds[self.file_paths[self.selected_file]]
             try:
-                value = self.ds[self.file_paths[self.selected_file]].get_tag_value(self.tag.tag)
-                self.input['value'].SetValue(value)
+                value = str(ds.get_tag_value(self.tag.tag))
             except Exception:
-                self.input['value'].SetValue('')
+                try:
+                    addresses = ds.find_tag(self.tag.tag)
+                    value = str(ds.get_tag_value(self.tag.tag, address=addresses[0]))
+                except Exception:
+                    value = ''
+            self.input['value'].SetValue(value)
 
     def update_modality(self):
         """Update Modality in the Directory box based on the currently selected file"""
