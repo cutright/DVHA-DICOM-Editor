@@ -45,12 +45,6 @@ class AskYesNo(wx.MessageDialog):
     def __init__(self, parent, msg, caption="Are you sure?", flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT):
         wx.MessageDialog.__init__(self, parent, msg, caption, flags)
 
-    @property
-    def run(self):
-        ans = self.ShowModal() == wx.YES
-        self.Destroy()
-        return ans
-
 
 class ViewErrorLog(wx.Dialog):
     """Dialog to display the error log in a scrollable window"""

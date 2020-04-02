@@ -466,21 +466,23 @@ class MainFrame(wx.Frame):
     def on_save_dicom(self, *evt):
         """Apply edits, check for errors, then run save_files"""
         if self.dir_contents_have_changed:
-            if not AskYesNo(self, "Directory contents have changed. Continue anyway?").run:
-                return
+            with AskYesNo(self, "Directory contents have changed. Continue anyway?") as dlg:
+                if dlg.ShowModal() == wx.ID_NO:
+                    return
 
         error_log, history = self.apply_edits()  # Edits the loaded pydicom datasets
         if error_log:
             ViewErrorLog(error_log)
-            if not AskYesNo(self, "Continue writing DICOM files anyway?").run:
-                return
+            with AskYesNo(self, "Continue writing DICOM files anyway?") as dlg:
+                if dlg.ShowModal() == wx.ID_NO:
+                    return
 
         if self.set_output_paths(check_only=True):
             msg = "You will overwrite files with this action. Continue?"
             caption = "Are you sure?"
             flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
             with wx.MessageDialog(self, msg, caption, flags) as dlg:
-                if dlg.ShowModal() != wx.ID_YES:
+                if dlg.ShowModal() == wx.ID_NO:
                     return
         self.set_output_paths()
 
@@ -789,9 +791,19 @@ class MainFrame(wx.Frame):
 
             for file_path, ds in self.ds.items():
                 try:
-                    new_value = value_type(values_dict[file_path])
-                    old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
-                    history.append([keyword, old_value, new_value])
+                    if tag.tag in ds.dcm.keys():
+                        new_value = value_type(values_dict[file_path])
+                        old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
+                        history.append([keyword, old_value, new_value])
+                    else:
+                        addresses = ds.find_tag(tag.tag)
+                        if not addresses:
+                            raise Exception
+                        for address in addresses:
+                            new_value = value_type(values_dict[file_path])
+                            old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
+                            history.append([keyword, old_value, new_value])
+
                 except Exception as e:
                     err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
                     value = value_str if value_str else '[empty value]'
