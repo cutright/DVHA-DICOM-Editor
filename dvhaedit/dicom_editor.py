@@ -54,16 +54,24 @@ class DICOMEditor:
             element.value = new_value
         return old_value, self.get_tag_value(tag, address)
 
-    def sync_referenced_tag(self, keyword, old_value, new_value):
+    def sync_referenced_tag(self, keyword, old_value, new_value, check_all_tags=False):
         """
         Check if there is a Referenced tag with matching value, then set to new_value if so
         :param keyword: DICOM tag keyword
         :type keyword: str
         :param old_value: if Referenced+keyword tag value is this value, update to new_value
         :param new_value: new value of tag if connected
+        :param check_all_tags: Set to True to check every tag in the dataset,
+        otherwise only SQ and tags with Referenced in their keywords
+        :type check_all_tags: bool
         """
-        tag = keyword_dict.get("Referenced%s" % keyword)
-        for address in self.find_tag(tag, referenced_mode=True):
+        if check_all_tags:
+            addresses = self.find_all_tags_with_value(old_value, vr='UI')
+        else:
+            tag = keyword_dict.get("Referenced%s" % keyword)
+            addresses = self.find_tag(tag, referenced_mode=True)
+
+        for address in addresses:
             tag = address[-1][0]
             if self.get_tag_value(tag, address=address) == old_value:
                 self.edit_tag(new_value, tag, address=address)
@@ -133,9 +141,12 @@ class DICOMEditor:
             return 'Not Found'
 
     def find_all_tags_with_vr(self, vr):
-        return self.find_tag(None, vr)
+        return self.find_tag(None, vr=vr)
 
-    def find_tag(self, tag, vr=None, referenced_mode=False):
+    def find_all_tags_with_value(self, value, vr=None):
+        return self.find_tag(None, value=value, vr=vr)
+
+    def find_tag(self, tag, vr=None, referenced_mode=False, value=None):
         """Find all instances of tag in the pydicom dataset, return tags and indices pointing to input tag"""
         # address is a list of all values for tag, with its location
         # each item in the list has a length equal to number of tags required to identify the value
@@ -148,10 +159,10 @@ class DICOMEditor:
         # To find all tags with a specified VR, set vr and set tag to None
 
         addresses = []
-        self._find_tag_instances(tag, self.dcm, addresses, vr=vr, referenced_mode=referenced_mode)
+        self._find_tag_instances(tag, self.dcm, addresses, vr=vr, referenced_mode=referenced_mode, value=value)
         return addresses
 
-    def _find_tag_instances(self, tag, data_set, addresses, parent=None, vr=None, referenced_mode=False):
+    def _find_tag_instances(self, tag, data_set, addresses, parent=None, vr=None, referenced_mode=False, value=None):
         """recursively walk through data_set sequences, collect addresses with the provided tag"""
         if referenced_mode:
             vr = 'UI'
@@ -165,7 +176,7 @@ class DICOMEditor:
                 elif tag is None or \
                         (hasattr(elem, 'tag') and (elem.tag == tag or
                                                    (referenced_mode and 'Referenced' in elem.keyword))):
-                    if vr is None or vr == elem.VR:
+                    if (vr is None or vr == elem.VR) and (value is None or (elem.VR == vr and elem.value == value)):
                         addresses.append(parent + [[int(elem.tag), None]])
 
 

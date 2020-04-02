@@ -403,16 +403,17 @@ class SavingProgressFrame(ProgressFrame):
 
 class RefSyncProgressFrame(ProgressFrame):
     """Create a window to display saving progress and begin SaveWorker"""
-    def __init__(self, history, data_sets):
-        ProgressFrame.__init__(self, history, partial(update_referenced_tags, data_sets), close_msg='ref_sync_complete',
-                               action_gui_phrase='Updating Reference for:',
+    def __init__(self, history, data_sets, check_all_tags):
+        ProgressFrame.__init__(self, history, partial(update_referenced_tags, data_sets, check_all_tags),
+                               close_msg='ref_sync_complete',
+                               action_gui_phrase='Updating References for Tag:',
                                title='Updating Referenced Tags')
 
 
-def update_referenced_tags(data_sets, history_row):
+def update_referenced_tags(data_sets, check_all_tags, history_row):
     keyword, old_value, new_value = tuple(history_row)
     for ds in data_sets:
-        ds.sync_referenced_tag(keyword, old_value, new_value)
+        ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
 
 
 class AdvancedSettings(wx.Dialog):
