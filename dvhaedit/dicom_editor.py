@@ -37,17 +37,23 @@ class DICOMEditor:
 
         self.output_path = None
 
-    def edit_tag(self, tag, new_value):
+    def edit_tag(self, tag, new_value, address=None):
         """
         Change a DICOM tag value
         :param tag: the DICOM tag of interest
         :type tag: Tag
         :param new_value: new value of the DICOM tag
+        :param address: an address is required for tags within sequences
         """
-        old_value = self.dcm[tag].value
-        self.dcm[tag].value = new_value
-        self.init_tag_values[tag] = old_value
-        return old_value, self.dcm[tag].value
+        if address is None:
+            old_value = self.dcm[tag].value
+            self.init_tag_values[tag] = old_value
+            self.dcm[tag].value = new_value
+        else:
+            element = self.get_element(tag, address)
+            old_value = element.value
+            element.value = new_value
+        return old_value, self.get_tag_value(tag, address)
 
     def sync_referenced_tag(self, keyword, old_value, new_value):
         """
@@ -86,14 +92,24 @@ class DICOMEditor:
         :param address: if tag is within a sequence, an address is needed which is a list of [tag, index]
         :type address: list
         """
-        if not address:
-            return self.dcm[tag].value
+        return self.get_element(tag, address).value
+
+    def get_element(self, tag, address=None):
+        """
+        Get the element of the provided DICOM tag
+        :param tag: the DICOM tag of interest
+        :type tag: Tag
+        :param address: if tag is within a sequence, an address is needed which is a list of [tag, index]
+        :type address: list
+        """
+        if address is None:
+            return self.dcm[tag]
 
         element = self.dcm
-        for sequence in address:
+        for sequence in address[:-1]:  # Final item in address is [tag, None]
             tag_, index_ = tuple(sequence)
             element = element[tag_][index_]
-        return element[tag].value
+        return element[tag]
 
     def get_tag_keyword(self, tag):
         """
@@ -132,30 +148,36 @@ class DICOMEditor:
         except Exception:
             return 'Not Found'
 
-    def find_tag(self, tag):
+    def find_all_tags_with_vr(self, vr):
+        return self.find_tag(None, vr)
+
+    def find_tag(self, tag, vr=None):
         """Find all instances of tag in the pydicom dataset, return tags and indices pointing to input tag"""
         # address is a list of all values for tag, with its location
         # each item in the list has a length equal to number of tags required to identify the value
         # Example:
         #   BeamMeterSet (300A, 0086) for RT PLan is accessed via FractionGroupSequence -> ReferencedBeamSequence
         #   Therefore, each row in addresses will be:
-        #       [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index]]
+        #     [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index], [<BeamMeterSet tag>, None]]
         # Addresses store the int representation of tag
+        #
+        # To find all tags with a specified VR, set vr and set tag to None
 
         addresses = []
-        self._find_tag_instances(tag, self.dcm, addresses)
+        self._find_tag_instances(tag, self.dcm, addresses, vr=vr)
         return addresses
 
-    def _find_tag_instances(self, tag, data_set, addresses, parent=None):
-        """recursively walk through data_set sequences, collect values with the provided tag"""
+    def _find_tag_instances(self, tag, data_set, addresses, parent=None, vr=None):
+        """recursively walk through data_set sequences, collect addresses with the provided tag"""
         if parent is None:
             parent = []
         for elem in data_set:
-            if hasattr(elem, 'tag') and elem.tag == tag:
-                addresses.append(parent)
-            elif hasattr(elem, 'VR') and elem.VR == 'SQ':
+            if hasattr(elem, 'VR') and elem.VR == 'SQ':
                 for i, seq_item in enumerate(elem):
                     self._find_tag_instances(tag, seq_item, addresses, parent + [[int(elem.tag), i]])
+            elif tag is None or hasattr(elem, 'tag') and elem.tag == tag:
+                if vr is None or vr == elem.VR:
+                    addresses.append(parent + [[int(elem.tag), None]])
 
 
 class Tag:

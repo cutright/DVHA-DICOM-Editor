@@ -78,7 +78,7 @@ class ValueGenerator:
                 if key == 'file':
                     enum = [self.file(index, f, True) for f in self.file_paths]
                 else:
-                    enum = [ds.get_tag_value(self.tag, index) for ds in self.data_sets]
+                    enum = [ds.get_tag_value(self.tag) for ds in self.data_sets]
                 instances[index] = sorted(list(set(enum)))
 
         # set uids
