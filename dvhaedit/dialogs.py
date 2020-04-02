@@ -11,6 +11,7 @@ Classes used to edit pydicom datasets
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 import wx
+from functools import partial
 from pubsub import pub
 from queue import Queue
 from threading import Thread
@@ -398,6 +399,20 @@ class SavingProgressFrame(ProgressFrame):
         ProgressFrame.__init__(self, data_sets, save_dicom, close_msg='save_complete',
                                action_gui_phrase='Saving File',
                                title='Saving DICOM Data')
+
+
+class RefSyncProgressFrame(ProgressFrame):
+    """Create a window to display saving progress and begin SaveWorker"""
+    def __init__(self, history, data_sets):
+        ProgressFrame.__init__(self, history, partial(update_referenced_tags, data_sets), close_msg='ref_sync_complete',
+                               action_gui_phrase='Updating Reference for:',
+                               title='Updating Referenced Tags')
+
+
+def update_referenced_tags(data_sets, history_row):
+    keyword, old_value, new_value = tuple(history_row)
+    for ds in data_sets:
+        ds.sync_referenced_tag(keyword, old_value, new_value)
 
 
 class AdvancedSettings(wx.Dialog):

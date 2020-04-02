@@ -11,7 +11,6 @@ Classes used to edit pydicom datasets
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 import pydicom
-from pydicom.sequence import Sequence as DicomSequence
 from pydicom.datadict import keyword_dict, get_entry
 from pydicom._dicom_dict import DicomDictionary
 from pydicom._uid_dict import UID_dictionary
@@ -37,7 +36,7 @@ class DICOMEditor:
 
         self.output_path = None
 
-    def edit_tag(self, tag, new_value, address=None):
+    def edit_tag(self, new_value, tag, address=None):
         """
         Change a DICOM tag value
         :param tag: the DICOM tag of interest
@@ -64,25 +63,10 @@ class DICOMEditor:
         :param new_value: new value of tag if connected
         """
         tag = keyword_dict.get("Referenced%s" % keyword)
-        if tag is not None:
-            # Edit top-level tag value of dataset's original value is provided old_value
-            # self.init_tag_values only contain edited tag values
-            if self.init_tag_values.get(tag) == old_value or \
-                    (tag in list(self.dcm) and self.get_tag_value(tag) == old_value):
-                self.edit_tag(tag, new_value)
-
-            # Find all top-level sequences with names that begin with 'Referenced'
-            # iterate through all keywords that start with 'Referenced', of each sequence
-            # if value matches old_value and its tag matches 'Referenced'+keyword, set to new_value
-            for key in self.dcm.trait_names():
-                if key.startswith('Referenced'):
-                    dcm_item = getattr(self.dcm, key)
-                    if isinstance(dcm_item, DicomSequence):
-                        for seq_item in dcm_item:
-                            seq_keys = [sk for sk in seq_item.trait_names() if sk.startswith('Referenced')]
-                            for sk in seq_keys:
-                                if getattr(seq_item, sk) == old_value and sk == 'Referenced' + keyword:
-                                    setattr(seq_item, sk, new_value)
+        for address in self.find_tag(tag, referenced_mode=True):
+            tag = address[-1][0]
+            if self.get_tag_value(tag, address=address) == old_value:
+                self.edit_tag(new_value, tag, address=address)
 
     def get_tag_value(self, tag, address=None):
         """
@@ -151,7 +135,7 @@ class DICOMEditor:
     def find_all_tags_with_vr(self, vr):
         return self.find_tag(None, vr)
 
-    def find_tag(self, tag, vr=None):
+    def find_tag(self, tag, vr=None, referenced_mode=False):
         """Find all instances of tag in the pydicom dataset, return tags and indices pointing to input tag"""
         # address is a list of all values for tag, with its location
         # each item in the list has a length equal to number of tags required to identify the value
@@ -164,20 +148,25 @@ class DICOMEditor:
         # To find all tags with a specified VR, set vr and set tag to None
 
         addresses = []
-        self._find_tag_instances(tag, self.dcm, addresses, vr=vr)
+        self._find_tag_instances(tag, self.dcm, addresses, vr=vr, referenced_mode=referenced_mode)
         return addresses
 
-    def _find_tag_instances(self, tag, data_set, addresses, parent=None, vr=None):
+    def _find_tag_instances(self, tag, data_set, addresses, parent=None, vr=None, referenced_mode=False):
         """recursively walk through data_set sequences, collect addresses with the provided tag"""
+        if referenced_mode:
+            vr = 'UI'
         if parent is None:
             parent = []
         for elem in data_set:
-            if hasattr(elem, 'VR') and elem.VR == 'SQ':
-                for i, seq_item in enumerate(elem):
-                    self._find_tag_instances(tag, seq_item, addresses, parent + [[int(elem.tag), i]])
-            elif tag is None or hasattr(elem, 'tag') and elem.tag == tag:
-                if vr is None or vr == elem.VR:
-                    addresses.append(parent + [[int(elem.tag), None]])
+            if not referenced_mode or 'Referenced' in elem.keyword:
+                if hasattr(elem, 'VR') and elem.VR == 'SQ':
+                    for i, seq_item in enumerate(elem):
+                        self._find_tag_instances(tag, seq_item, addresses, parent + [[int(elem.tag), i]])
+                elif tag is None or \
+                        (hasattr(elem, 'tag') and (elem.tag == tag or
+                                                   (referenced_mode and 'Referenced' in elem.keyword))):
+                    if vr is None or vr == elem.VR:
+                        addresses.append(parent + [[int(elem.tag), None]])
 
 
 class Tag:

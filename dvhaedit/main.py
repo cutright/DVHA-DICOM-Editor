@@ -19,7 +19,7 @@ from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,\
-    ParsingProgressFrame, SavingProgressFrame, DynamicValueHelp, AdvancedSettings
+    ParsingProgressFrame, SavingProgressFrame, DynamicValueHelp, AdvancedSettings, RefSyncProgressFrame
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
@@ -189,6 +189,7 @@ class MainFrame(wx.Frame):
         pub.subscribe(self.add_parsed_data, "add_parsed_data")
         pub.subscribe(self.on_parse_complete, "parse_complete")
         pub.subscribe(self.on_save_complete, 'save_complete')
+        pub.subscribe(self.do_saving_progress_frame, 'ref_sync_complete')
 
     def on_parse_complete(self):
         self.update_combobox_files()
@@ -468,12 +469,6 @@ class MainFrame(wx.Frame):
             if not AskYesNo(self, "Continue writing DICOM files anyway?").run:
                 return
 
-        # Sync Referenced tags
-        for keyword in list(history):
-            for old_value, new_value in history[keyword].items():
-                for ds in self.ds.values():
-                    ds.sync_referenced_tag(keyword, old_value, new_value)
-
         if self.set_output_paths(check_only=True):
             msg = "You will overwrite files with this action. Continue?"
             caption = "Are you sure?"
@@ -482,6 +477,14 @@ class MainFrame(wx.Frame):
                 if dlg.ShowModal() != wx.ID_YES:
                     return
         self.set_output_paths()
+
+        if self.update_referenced_tags.GetValue():
+            RefSyncProgressFrame(history, self.ds.values())
+            # This will call SavingProgressFrame when done
+        else:
+            self.do_saving_progress_frame()
+
+    def do_saving_progress_frame(self):
         SavingProgressFrame(self.ds.values())
 
     def on_save_complete(self):
@@ -761,7 +764,7 @@ class MainFrame(wx.Frame):
     def apply_edits(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
         error_log = []
-        history = {}
+        history = []
         for row in range(self.data_table.row_count):
 
             row_data = self.data_table.get_row(row)
@@ -770,8 +773,6 @@ class MainFrame(wx.Frame):
             tag = Tag(group, element)
 
             keyword = row_data[1]
-            if keyword not in list(history):
-                history[keyword] = {}
 
             value_str = row_data[2]
             value_type = get_type(row_data[3])
@@ -782,8 +783,8 @@ class MainFrame(wx.Frame):
             for file_path, ds in self.ds.items():
                 try:
                     new_value = value_type(values_dict[file_path])
-                    old_value, _ = ds.edit_tag(tag.tag, new_value)
-                    history[keyword][old_value] = new_value
+                    old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
+                    history.append([keyword, old_value, new_value])
                 except Exception as e:
                     err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
                     value = value_str if value_str else '[empty value]'
