@@ -642,7 +642,7 @@ class MainFrame(wx.Frame):
 
     def update_init_value(self):
         """Update Value in the Tag Editor based on the currently selected file"""
-        if self.group and self.element:
+        if self.ds and self.group and self.element:
             ds = self.ds[self.file_paths[self.selected_file]]
             try:
                 value = str(ds.get_tag_value(self.tag.tag))
