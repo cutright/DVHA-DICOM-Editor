@@ -624,8 +624,9 @@ class MainFrame(wx.Frame):
     def update_add_enable(self, *evt):
         enable = len(self.file_paths) > 0 and bool(self.group) and bool(self.element) and self.value_is_valid
         self.button['add'].Enable(enable)
-        self.button['advanced'].Enable(enable and any(["*%s[" % v in self.value
-                                                       for v in ['fuid', 'vuid', 'frand', 'vrand']]))
+        value_str = self.input['value'].GetValue()
+        adv_enable = enable and any([v in value_str for v in ['*fuid[', '*vuid', '*frand[', '*vrand']])
+        self.button['advanced'].Enable(adv_enable)
         if enable:
             self.update_preview()
         else:
@@ -648,8 +649,8 @@ class MainFrame(wx.Frame):
                 value = str(ds.get_tag_value(self.tag.tag))
             except Exception:
                 try:
-                    addresses = ds.find_tag(self.tag.tag)
-                    value = str(ds.get_tag_value(self.tag.tag, address=addresses[0]))
+                    address = ds.find_tag(self.tag.tag)[0]
+                    value = str(address[-1][1])
                 except Exception:
                     value = ''
             self.input['value'].SetValue(value)
@@ -725,14 +726,19 @@ class MainFrame(wx.Frame):
         call_str = value.split('*')[1::2]
 
         # each call requires left and right square brackets, an int between them, and a valid function call
+        value_functions = [f for f in self.functions if f[0] == 'v']
         for call in call_str:
-            if not (call.count('[') == 1 and call.count(']') == 1 and call.endswith(']')):
-                return False
-            if call.split('[')[0] not in self.functions:
-                return False
-            param = call.split('[')[1][:-1]
-            if not(param.isdigit() or (param.startswith('-') and param[1:].isdigit())):
-                return False
+            if '[' not in call and ']' not in call:
+                if call not in value_functions:
+                    return False
+            else:
+                if not (call.count('[') == 1 and call.count(']') == 1 and call.endswith(']')):
+                    return False
+                if call.split('[')[0] not in self.functions:
+                    return False
+                param = call.split('[')[1][:-1]
+                if not(param.isdigit() or (param.startswith('-') and param[1:].isdigit())):
+                    return False
 
         return True
 

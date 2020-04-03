@@ -86,6 +86,9 @@ class DICOMEditor:
         """
         return self.get_element(tag, address).value
 
+    def get_all_tag_values(self, tag):
+        return list(set([address[-1][1] for address in self.find_tag(tag)]))
+
     def get_element(self, tag, address=None):
         """
         Get the element of the provided DICOM tag
@@ -146,7 +149,7 @@ class DICOMEditor:
     def find_all_tags_with_value(self, value, vr=None):
         return self.find_tag(None, value=value, vr=vr)
 
-    def find_tag(self, tag, vr=None, referenced_mode=False, value=None):
+    def find_tag(self, tag, vr=None, referenced_mode=False, value=None, get_first_value=False):
         """Find all instances of tag in the pydicom dataset, return tags and indices pointing to input tag"""
         # address is a list of all values for tag, with its location
         # each item in the list has a length equal to number of tags required to identify the value
@@ -177,7 +180,8 @@ class DICOMEditor:
                         (hasattr(elem, 'tag') and (elem.tag == tag or
                                                    (referenced_mode and 'Referenced' in elem.keyword))):
                     if (vr is None or vr == elem.VR) and (value is None or (elem.VR == vr and elem.value == value)):
-                        addresses.append(parent + [[int(elem.tag), None]])
+                        v = elem.value if hasattr(elem, 'value') else None
+                        addresses.append(parent + [[int(elem.tag), v]])
 
 
 class Tag:

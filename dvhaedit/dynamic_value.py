@@ -35,11 +35,12 @@ class ValueGenerator:
         self.file_paths = []
         self.func_call = []
 
+        self.functions = ['file', 'val', 'fenum', 'venum', 'fuid', 'vuid', 'frand', 'vrand']
+        self.value_functions = [f for f in self.functions if f[0] == 'v']
+        self.func_map = {f: getattr(self, f) for f in self.functions}
+
         if value is not None and tag is not None:
             self.set_func_call_dict()
-
-        self.functions = ['file', 'val', 'fenum', 'venum', 'fuid', 'vuid', 'frand', 'vrand']
-        self.func_map = {f: getattr(self, f) for f in self.functions}
 
     def __call__(self, data_sets):
         """
@@ -55,7 +56,7 @@ class ValueGenerator:
             new_value = self.value.split('*')
             for i, call_str in enumerate(self.value.split('*')):
                 if i % 2 == 1:
-                    new_value[i] = self.get_value(call_str, file_path)
+                    new_value[i] = str(self.get_value(call_str, file_path))
             new_values[file_path] = ''.join(new_value)
         return new_values
 
@@ -78,7 +79,10 @@ class ValueGenerator:
                 if key == 'file':
                     enum = [self.file(index, f, True) for f in self.file_paths]
                 else:
-                    enum = [ds.get_tag_value(self.tag) for ds in self.data_sets]
+                    enum = []
+                    for ds in self.data_sets:
+                        enum.extend(ds.get_all_tag_values(self.tag))
+                        enum = list(set(enum))
                 instances[index] = sorted(list(set(enum)))
 
         # set uids
@@ -125,9 +129,10 @@ class ValueGenerator:
     #################################################################################
     # Utilities
     #################################################################################
-    @staticmethod
-    def split_call_str(func_call_str):
+    def split_call_str(self, func_call_str):
         """Split the string into function and parameter"""
+        if func_call_str in self.value_functions:
+            return func_call_str, None
         f_split = func_call_str.split('[')
         func = f_split[0]
         param = f_split[1][:-1]  # remove last character, ]
@@ -150,10 +155,16 @@ class ValueGenerator:
     # The following function names, in this comment block, must match those found in self.functions,
     # and have two input parameters: index and file_path
 
-    def val(self, index, file_path):
+    def val(self, _, file_path):
         """Process a value enumeration (index included for abstract use)"""
         ds = self.data_sets[self.file_paths.index(file_path)]
-        return ds.get_tag_value(self.tag)
+        try:
+            return ds.get_tag_value(self.tag)
+        except KeyError:
+            addresses = ds.find_tag(self.tag)
+            if addresses:
+                return addresses[0][-1][1]
+            return None
 
     def fenum(self, index, file_path):
         """Process a file enumeration"""
@@ -162,7 +173,15 @@ class ValueGenerator:
     def venum(self, index, file_path):
         """Process a value enumeration"""
         ds = self.data_sets[self.file_paths.index(file_path)]
-        return str(self.enum_instances['value'][index].index(ds.get_tag_value(self.tag)) + 1)
+        try:
+            value = ds.get_tag_value(self.tag)
+        except KeyError:
+            addresses = ds.find_tag(self.tag)
+            if addresses:
+                value = addresses[0][-1][1]
+            else:
+                return 'None'
+        return str(self.enum_instances['value'][index].index(value) + 1)
 
     def fuid(self, index, file_path):
         """Process file path based uid generator"""
@@ -189,7 +208,14 @@ class ValueGenerator:
     def vmethod(self, index, file_path, lookup):
         """Process a value-like function (except enum)"""
         ds = self.data_sets[self.file_paths.index(file_path)]
-        value = ds.get_tag_value(self.tag)
+        try:
+            value = ds.get_tag_value(self.tag)
+        except KeyError:
+            addresses = ds.find_tag(self.tag)
+            if addresses:
+                value = addresses[0][-1][1]
+            else:
+                return None
         return lookup['value'][index][value]
 
 
