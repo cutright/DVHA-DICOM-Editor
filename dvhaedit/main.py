@@ -689,7 +689,7 @@ class MainFrame(wx.Frame):
         value_str = self.value
         value_gen = ValueGenerator(value_str, tag.tag, self.current_options)
         file = self.file_paths[self.selected_file]
-        value = value_gen(self.ds)[file] if file in self.ds.keys() else ''
+        value = value_gen(self.ds, file_path=file) if file in self.ds.keys() else ''
         self.input['preview'].SetValue(value)
 
     #################################################################################

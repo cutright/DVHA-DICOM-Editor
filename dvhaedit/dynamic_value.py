@@ -42,13 +42,19 @@ class ValueGenerator:
         if value is not None and tag is not None:
             self.set_func_call_dict()
 
-    def __call__(self, data_sets):
+    def __call__(self, data_sets, file_path=None):
         """
         :param data_sets: parsed dicom data using DICOMEditor class
+        :type data_sets: dict
+        :param file_path: optionally specify a single file_path for the generator to use (for efficient previewing)
+        :type file_path: str
         :return: new tag values
-        :rtype: dict
+        :rtype: dict or str
         """
-        self.file_paths = sorted(list(data_sets))
+        if file_path is None:
+            self.file_paths = sorted(list(data_sets))
+        else:
+            self.file_paths = [file_path]
         self.data_sets = [data_sets[f] for f in self.file_paths]
         self.set_enum_instances()
         new_values = {}
@@ -58,6 +64,8 @@ class ValueGenerator:
                 if i % 2 == 1:
                     new_value[i] = str(self.get_value(call_str, file_path))
             new_values[file_path] = ''.join(new_value)
+        if file_path is not None:
+            return new_values[file_path]
         return new_values
 
     #################################################################################
