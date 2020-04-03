@@ -232,9 +232,29 @@ class Tag:
 
     @property
     def vr(self):
+        return self.get_entry('VR')
+
+    @property
+    def vm(self):
+        return self.get_entry('VM')
+
+    @property
+    def name(self):
+        return self.get_entry('name')
+
+    @property
+    def is_retired(self):
+        return self.get_entry('is_retired')
+
+    @property
+    def keyword(self):
+        return self.get_entry('keyword')
+
+    def get_entry(self, tag_property):
+        index = ['VR', 'VM', 'name', 'is_retired', 'keyword'].index(tag_property)
         if not self.has_x and self.group and self.element:
             try:
-                return get_entry(self.tag_as_int)[0]
+                return get_entry(self.tag_as_int)[index]
             except KeyError:
                 pass
         return 'Not Found'

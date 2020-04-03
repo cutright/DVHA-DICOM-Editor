@@ -58,12 +58,12 @@ class ValueGenerator:
         self.data_sets = [data_sets[f] for f in self.file_paths]
         self.set_enum_instances()
         new_values = {}
-        for file_path in self.file_paths:
+        for f in self.file_paths:
             new_value = self.value.split('*')
             for i, call_str in enumerate(self.value.split('*')):
                 if i % 2 == 1:
-                    new_value[i] = str(self.get_value(call_str, file_path))
-            new_values[file_path] = ''.join(new_value)
+                    new_value[i] = str(self.get_value(call_str, f))
+            new_values[f] = ''.join(new_value)
         if file_path is not None:
             return new_values[file_path]
         return new_values

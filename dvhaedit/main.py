@@ -114,10 +114,6 @@ class MainFrame(wx.Frame):
         self.label['value'].SetLabel('Enter New DICOM Tag Value Here: ')
 
         self.button['search'].SetToolTip("Search for DICOM tag based on keyword.")
-
-        self.label['keyword'].SetToolTip("If a keyword is not found, then the current tag could not be found "
-                                         "in any of the loaded DICOM Files or it is within a sequence "
-                                         "(not yet supported).")
         self.input['preview'].SetToolTip("Values may be set dynamically, a preview is shown here. Note that generated "
                                          "UIDs will be different than the final value if no entropy source is "
                                          "provided.")
@@ -317,12 +313,7 @@ class MainFrame(wx.Frame):
 
     @property
     def keyword(self):
-        for file_path in self.file_paths:
-            try:
-                return self.ds[file_path].get_tag_keyword(self.tag.tag)
-            except Exception:
-                pass
-        return 'Not Found'
+        return self.tag.keyword
 
     @property
     def selected_indices(self):
