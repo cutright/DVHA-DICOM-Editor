@@ -18,8 +18,8 @@ from pathlib import Path
 from pubsub import pub
 import webbrowser
 from dvhaedit.data_table import DataTable
-from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,\
-    ParsingProgressFrame, SavingProgressFrame, DynamicValueHelp, AdvancedSettings, RefSyncProgressFrame
+from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,ParsingProgressFrame,\
+    SavingProgressFrame, DynamicValueHelp, AdvancedSettings, RefSyncProgressFrame, ValueGenProgressFrame
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
@@ -40,6 +40,8 @@ class MainFrame(wx.Frame):
         self.functions = ValueGenerator().functions
         self.all_options = {}
         self.current_options = Options()
+        self.value_generators = []
+        self.values_dicts = []
 
         # Create GUI widgets
         keys = ['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
@@ -191,6 +193,8 @@ class MainFrame(wx.Frame):
         pub.subscribe(self.on_parse_complete, "parse_complete")
         pub.subscribe(self.on_save_complete, 'save_complete')
         pub.subscribe(self.do_saving_progress_frame, 'ref_sync_complete')
+        pub.subscribe(self.add_value_dicts, 'add_value_dicts')
+        pub.subscribe(self.call_next_value_generator, 'value_gen_complete')
 
     def on_parse_complete(self):
         self.update_combobox_files()
@@ -461,6 +465,11 @@ class MainFrame(wx.Frame):
                 if dlg.ShowModal() == wx.ID_NO:
                     return
 
+        # Can be expensive, on_save_dicom split to enable threading
+        # calls do_save_dicom when done
+        self.value_generator()
+
+    def do_save_dicom(self):
         error_log, history = self.apply_edits()  # Edits the loaded pydicom datasets
         if error_log:
             ViewErrorLog(error_log)
@@ -767,24 +776,51 @@ class MainFrame(wx.Frame):
     #################################################################################
     # Finally... run the DICOM editor and save DICOM files
     #################################################################################
+    def value_generator(self):
+        """Apply the tag edits to every file in self.ds, return any errors"""
+        self.value_generators = []
+        for row in range(self.data_table.row_count):
+            row_data = self.get_table_row_data(row)
+            self.value_generators.append(ValueGenerator(row_data['value_str'],
+                                                        row_data['tag'].tag,
+                                                        row_data['options']))
+        wx.CallAfter(self.call_next_value_generator)
+
+    def call_next_value_generator(self):
+        if self.value_generators:
+            iteration = self.data_table.row_count - len(self.value_generators) + 1
+            value_generator = self.value_generators.pop(0)
+            ValueGenProgressFrame(self.ds, value_generator, iteration, self.data_table.row_count)
+        else:
+            self.do_save_dicom()
+
+    def add_value_dicts(self, msg):
+        self.values_dicts.append(msg)
+
+    def get_table_row_data(self, row):
+        row_data = self.data_table.get_row(row)
+        group = row_data[0].split(',')[0][1:].strip()
+        element = row_data[0].split(',')[1][:-1].strip()
+        row_data = {'tag': Tag(group, element),
+                    'keyword': row_data[1],
+                    'value_str': row_data[2],
+                    'value_type': get_type(row_data[3]),
+                    'options': self.all_options[row_data[4]]}
+        return row_data
+
     def apply_edits(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
         error_log = []
         history = []
         for row in range(self.data_table.row_count):
 
-            row_data = self.data_table.get_row(row)
-            group = row_data[0].split(',')[0][1:].strip()
-            element = row_data[0].split(',')[1][:-1].strip()
-            tag = Tag(group, element)
+            row_data = self.get_table_row_data(row)
+            tag = row_data['tag']
+            keyword = row_data['keyword']
+            value_str = row_data['value_str']
+            value_type = row_data['value_type']
 
-            keyword = row_data[1]
-
-            value_str = row_data[2]
-            value_type = get_type(row_data[3])
-            options = self.all_options[row_data[4]]
-            value_gen = ValueGenerator(value_str, tag.tag, options)
-            values_dict = value_gen(self.ds)
+            values_dict = self.values_dicts[row]
 
             for file_path, ds in self.ds.items():
                 try:

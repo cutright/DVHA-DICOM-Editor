@@ -42,12 +42,13 @@ class ValueGenerator:
         if value is not None and tag is not None:
             self.set_func_call_dict()
 
-    def __call__(self, data_sets, file_path=None):
+    def __call__(self, data_sets, file_path=None, callback=None):
         """
         :param data_sets: parsed dicom data using DICOMEditor class
         :type data_sets: dict
         :param file_path: optionally specify a single file_path for the generator to use (for efficient previewing)
         :type file_path: str
+        :param callback: optional function call through each loop through files, two parameters (iteration, count_total)
         :return: new tag values
         :rtype: dict or str
         """
@@ -58,12 +59,21 @@ class ValueGenerator:
         self.data_sets = [data_sets[f] for f in self.file_paths]
         self.set_enum_instances()
         new_values = {}
-        for f in self.file_paths:
+
+        file_count = len(self.file_paths)
+        if callback is not None:
+            callback(0, file_count)
+
+        for f_counter, f in enumerate(self.file_paths):
             new_value = self.value.split('*')
             for i, call_str in enumerate(self.value.split('*')):
                 if i % 2 == 1:
                     new_value[i] = str(self.get_value(call_str, f))
             new_values[f] = ''.join(new_value)
+
+            if callback is not None:
+                callback(f_counter+1, file_count)
+
         if file_path is not None:
             return new_values[file_path]
         return new_values
