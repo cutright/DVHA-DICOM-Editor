@@ -16,6 +16,7 @@ from os import sep
 from os.path import isdir, isfile, basename, join, dirname, normpath, splitext, relpath
 from pathlib import Path
 from pubsub import pub
+from pydicom.datadict import keyword_dict
 import webbrowser
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,ParsingProgressFrame,\
@@ -59,7 +60,7 @@ class MainFrame(wx.Frame):
         bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
         self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
-        columns = ['Tag', 'Keyword', 'Value', 'Value Type', 'Index']
+        columns = ['Index', 'Tag', 'Keyword', 'Value', 'Value Type']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 5)
@@ -373,13 +374,13 @@ class MainFrame(wx.Frame):
     def on_add(self, *evt):
         """Add a tag edit"""
         keys_int = [int(key) for key in list(self.all_options)]
-        options_key = '0' if not keys_int else str(max(keys_int) + 1)
-        self.all_options[options_key] = deepcopy(self.current_options)
-        row = [str(self.tag),
+        row_index = '0' if not keys_int else str(max(keys_int) + 1)
+        self.all_options[row_index] = deepcopy(self.current_options)
+        row = [row_index,
+               str(self.tag),
                self.keyword,
                self.input['value'].GetValue(),
-               self.input['value_type'].GetValue(),
-               options_key]
+               self.input['value_type'].GetValue()]
         if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
@@ -427,12 +428,12 @@ class MainFrame(wx.Frame):
         self.update_delete_enable()
         selected_data = self.data_table.selected_row_data
         if selected_data:
-            tag = selected_data[0][0][1:-1].split(',')
+            tag = selected_data[0][1][1:-1].split(',')
             group = tag[0].strip()
             element = tag[1].strip()
             self.input['tag_group'].SetValue(group)
             self.input['tag_element'].SetValue(element)
-            self.input['value_type'].SetValue(selected_data[0][3])
+            self.input['value_type'].SetValue(selected_data[1][3])
             self.update_keyword()
             self.update_init_value()
             self.update_preview()
@@ -484,12 +485,16 @@ class MainFrame(wx.Frame):
                     return
         self.set_output_paths()
 
-        if self.update_referenced_tags.GetSelection():
+        if self.update_referenced_tags.GetSelection() and self.a_referenced_tag_exists(history):
             check_all_tags = True if self.update_referenced_tags.GetSelection() == 2 else False
             RefSyncProgressFrame(history, self.ds.values(), check_all_tags)
             # This will call SavingProgressFrame when done
         else:
             self.do_saving_progress_frame()
+
+    @staticmethod
+    def a_referenced_tag_exists(history):
+        return any(["Referenced%s" % row[0] in list(keyword_dict) for row in history])
 
     def do_saving_progress_frame(self):
         SavingProgressFrame(self.ds.values())
@@ -797,13 +802,13 @@ class MainFrame(wx.Frame):
 
     def get_table_row_data(self, row):
         row_data = self.data_table.get_row(row)
-        group = row_data[0].split(',')[0][1:].strip()
-        element = row_data[0].split(',')[1][:-1].strip()
+        group = row_data[1].split(',')[0][1:].strip()
+        element = row_data[1].split(',')[1][:-1].strip()
         return {'tag': Tag(group, element),
-                'keyword': row_data[1],
-                'value_str': row_data[2],
-                'value_type': get_type(row_data[3]),
-                'options': self.all_options[row_data[4]]}
+                'keyword': row_data[2],
+                'value_str': row_data[3],
+                'value_type': get_type(row_data[4]),
+                'options': self.all_options[row_data[0]]}
 
     def apply_edits(self):
         """Apply the tag edits to every file in self.ds, return any errors"""

@@ -12,10 +12,13 @@ Classes used to edit pydicom datasets
 
 import wx
 from functools import partial
+import re
 from pubsub import pub
 from queue import Queue
 from threading import Thread
 from time import sleep
+from pydicom.datadict import keyword_dict
+from pydicom.uid import RE_VALID_UID_PREFIX
 from dvhaedit.data_table import DataTable
 from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
 from dvhaedit.dynamic_value import HELP_TEXT
@@ -406,12 +409,19 @@ class SavingProgressFrame(ProgressFrame):
 
 
 class RefSyncProgressFrame(ProgressFrame):
-    """Create a window to display saving progress and begin SaveWorker"""
+    """Create a window to display Referenced tag syncing progress and begin SaveWorker"""
     def __init__(self, history, data_sets, check_all_tags):
         ProgressFrame.__init__(self, history, partial(update_referenced_tags, data_sets, check_all_tags),
                                close_msg='ref_sync_complete',
                                action_gui_phrase='Checking References for Tag:',
                                title='Checking for Referenced Tags')
+
+
+def update_referenced_tags(data_sets, check_all_tags, history_row):
+    keyword, old_value, new_value = tuple(history_row)
+    if "Referenced%s" % keyword in list(keyword_dict):
+        for ds in data_sets:
+            ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
 
 
 class ValueGenProgressFrame(ProgressFrame):
@@ -424,12 +434,6 @@ class ValueGenProgressFrame(ProgressFrame):
                                action_gui_phrase='File:',
                                title='Generating Values for Tag %s of %s' % (iteration, total_count),
                                custom_callback=value_generator_callback)
-
-
-def update_referenced_tags(data_sets, check_all_tags, history_row):
-    keyword, old_value, new_value = tuple(history_row)
-    for ds in data_sets:
-        ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
 
 
 def value_generator_callback(iteration, count_total):
@@ -457,6 +461,8 @@ class AdvancedSettings(wx.Dialog):
         self.button = {'ok': wx.Button(self, wx.ID_OK, 'OK'),
                        'cancel': wx.Button(self, wx.ID_CANCEL, 'Cancel')}
 
+        self.valid_prefix_pattern = re.compile(RE_VALID_UID_PREFIX)
+
         self.__set_properties()
         self.__do_bind()
         self.__do_layout()
@@ -475,6 +481,8 @@ class AdvancedSettings(wx.Dialog):
 
     def __do_bind(self):
         self.Bind(wx.EVT_TEXT, self.update_ok_enable, id=self.text_ctrl['rand_digits'].GetId())
+        self.Bind(wx.EVT_TEXT, self.update_ok_enable, id=self.combo_box['dicom_prefix'].GetId())
+        self.Bind(wx.EVT_COMBOBOX, self.update_ok_enable, id=self.combo_box['dicom_prefix'].GetId())
 
     def __do_layout(self):
         sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
@@ -515,10 +523,7 @@ class AdvancedSettings(wx.Dialog):
         self.set_rand_digits()
 
     def set_prefix(self):
-        new_value = self.combo_box['dicom_prefix'].GetValue()
-        if new_value in self.options.prefix_dict.keys():
-            new_value = self.options.prefix_dict[new_value] + '.'
-        self.options.prefix = new_value
+        self.options.prefix = self.prefix
 
     def set_entropy(self):
         self.options.entropy_source = self.text_ctrl['entropy_source'].GetValue()
@@ -527,8 +532,24 @@ class AdvancedSettings(wx.Dialog):
         self.options.rand_digits = int(self.text_ctrl['rand_digits'].GetValue())
 
     def update_ok_enable(self, *evt):
-        self.button['ok'].Enable(self.is_rand_digit_valid())
+        self.button['ok'].Enable(self.is_input_valid)
 
+    @property
+    def is_input_valid(self):
+        return self.is_rand_digit_valid and self.is_prefix_valid
+
+    @property
     def is_rand_digit_valid(self):
         value = self.text_ctrl['rand_digits'].GetValue()
         return value.isdigit() and 0 < int(value) <= 64
+
+    @property
+    def prefix(self):
+        new_value = self.combo_box['dicom_prefix'].GetValue()
+        if new_value in self.options.prefix_dict.keys():
+            new_value = self.options.prefix_dict[new_value] + '.'
+        return new_value
+
+    @property
+    def is_prefix_valid(self):
+        return self.valid_prefix_pattern.sub('', self.prefix) == ''
