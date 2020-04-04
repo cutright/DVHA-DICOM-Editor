@@ -12,7 +12,6 @@ The main file for DVHA DICOM Editor
 
 import wx
 from copy import deepcopy
-from datetime import datetime
 from os import sep
 from os.path import isdir, isfile, basename, join, dirname, normpath, splitext, relpath
 from pathlib import Path
