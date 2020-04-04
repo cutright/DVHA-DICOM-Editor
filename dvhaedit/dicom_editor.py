@@ -149,7 +149,7 @@ class DICOMEditor:
     def find_all_tags_with_value(self, value, vr=None):
         return self.find_tag(None, value=value, vr=vr)
 
-    def find_tag(self, tag, vr=None, referenced_mode=False, value=None, get_first_value=False):
+    def find_tag(self, tag, vr=None, referenced_mode=False, value=None):
         """Find all instances of tag in the pydicom dataset, return tags and indices pointing to input tag"""
         # address is a list of all values for tag, with its location
         # each item in the list has a length equal to number of tags required to identify the value

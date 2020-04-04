@@ -325,8 +325,6 @@ class ProgressFrame(wx.Dialog):
         :type msg: dict
         """
         label = msg['label']
-        if self.custom_callback and 'Complete' not in label:
-            label = self.action_gui_phrase + label
         wx.CallAfter(self.label.SetLabelText, label)
         wx.CallAfter(self.gauge.SetValue, int(100 * msg['gauge']))
 
@@ -365,7 +363,7 @@ class ProgressFrameWorker(Thread):
         queue = Queue()
         for i, obj in enumerate(self.obj_list):
             msg = {'label': '%s %s of %s' % (self.action_gui_phrase, i + 1, self.obj_count),
-                   'gauge': i / self.obj_count}
+                   'gauge': float(i) / self.obj_count}
             queue.put((obj, msg))
         return queue
 
@@ -375,7 +373,7 @@ class ProgressFrameWorker(Thread):
             self.do_action(*parameters)
             queue.task_done()
 
-        msg = {'label': 'Process Complete: %s file%s' % (self.obj_count, ['', 's'][self.obj_count != 1]),
+        msg = {'label': 'Process Complete',
                'gauge': 1.}
         pub.sendMessage("progress_update", msg=msg)
 
@@ -412,8 +410,8 @@ class RefSyncProgressFrame(ProgressFrame):
     def __init__(self, history, data_sets, check_all_tags):
         ProgressFrame.__init__(self, history, partial(update_referenced_tags, data_sets, check_all_tags),
                                close_msg='ref_sync_complete',
-                               action_gui_phrase='Updating References for Tag:',
-                               title='Updating Referenced Tags')
+                               action_gui_phrase='Checking References for Tag:',
+                               title='Checking for Referenced Tags')
 
 
 class ValueGenProgressFrame(ProgressFrame):
@@ -435,7 +433,8 @@ def update_referenced_tags(data_sets, check_all_tags, history_row):
 
 
 def value_generator_callback(iteration, count_total):
-    msg = {'label': ' %s of %s' % (iteration, count_total),
+    label = ' %s of %s' % (iteration, count_total) if iteration else 'Initializing...'
+    msg = {'label': label,
            'gauge': iteration / count_total}
     pub.sendMessage("progress_update", msg=msg)
 

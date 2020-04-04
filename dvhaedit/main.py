@@ -12,6 +12,7 @@ The main file for DVHA DICOM Editor
 
 import wx
 from copy import deepcopy
+from datetime import datetime
 from os import sep
 from os.path import isdir, isfile, basename, join, dirname, normpath, splitext, relpath
 from pathlib import Path
@@ -58,8 +59,6 @@ class MainFrame(wx.Frame):
         self.button['search'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
         bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
         self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
-        bmp = wx.ArtProvider.GetBitmap(wx.ART_FIND_AND_REPLACE, size=(16, 16))
-        self.button['link'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
         columns = ['Tag', 'Keyword', 'Value', 'Value Type', 'Index']
         data = {c: [''] for c in columns}
@@ -67,7 +66,7 @@ class MainFrame(wx.Frame):
         self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 5)
 
         keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'keyword', 'selected_file',
-                'modality', 'prepend_file_name', 'link', 'add', 'search', 'value_rep', 'preview']
+                'modality', 'prepend_file_name', 'search', 'value_rep', 'preview', 'advanced', 'value_help']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
         self.search_sub_folders = wx.CheckBox(self, wx.ID_ANY, "Search Sub-Folders")
@@ -75,7 +74,7 @@ class MainFrame(wx.Frame):
 
         self.retain_rel_dir = wx.CheckBox(self, wx.ID_ANY, "Retain relative directory structure")
 
-        self.referenced_tag_choices = ['Edit Only Tags Defined in Table',
+        self.referenced_tag_choices = ['Only Edit Tags Defined in Table',
                                        'Update "Referenced" Tags',
                                        'Update All Tags with Matching UID']
         self.update_referenced_tags = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY,
@@ -86,13 +85,13 @@ class MainFrame(wx.Frame):
         self.refresh_needed = False
 
         self.directory = {'in': '', 'out': ''}
-        
+
         self.__set_properties()
         self.__add_menubar()
         self.__do_subscribe()
         self.__do_bind()
         self.__do_layout()
-    
+
     def __set_properties(self):
         """Set initial properties of widgets"""
         set_msw_background_color(self)
@@ -109,15 +108,15 @@ class MainFrame(wx.Frame):
         self.button['save_template'].SetLabel('Save')
         self.button['load_template'].SetLabel('Load')
 
-        self.label['add'].SetLabel(' ')
-        self.label['link'].SetLabel(' ')
+        self.label['advanced'].SetLabel(' ')
         self.label['search'].SetLabel(' ')
+        self.label['value_help'].SetLabel(' ')
         self.label['value_rep'].SetLabel('Value Representation (VR): ')
         self.label['value'].SetLabel('Enter New DICOM Tag Value Here: ')
 
         self.button['search'].SetToolTip("Search for DICOM tag based on keyword.")
         self.input['preview'].SetToolTip("Values may be set dynamically, a preview is shown here. Note that generated "
-                                         "UIDs will be different than the final value if no entropy source is "
+                                         "UIDs may be different than the final value if no entropy source is "
                                          "provided.")
         if is_mac():
             self.input['preview'].SetBackgroundColour((230, 230, 230))
@@ -167,7 +166,7 @@ class MainFrame(wx.Frame):
         self.frame_menubar.Append(file_menu, '&File')
         self.frame_menubar.Append(help_menu, '&Help')
         self.SetMenuBar(self.frame_menubar)
-    
+
     def __do_bind(self):
         """Bind user events to widgets with actions"""
 
@@ -212,7 +211,8 @@ class MainFrame(wx.Frame):
         sizer_edit_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Tag Editor"), wx.VERTICAL)
         sizer_edit = wx.BoxSizer(wx.HORIZONTAL)
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
-                              for key in ['tag_group', 'tag_element', 'value', 'value_type', 'link', 'add', 'search']}
+                              for key in ['tag_group', 'tag_element', 'value', 'value_type', 'value_help',
+                                          'add', 'search', 'advanced']}
         sizer_value_keyword = wx.BoxSizer(wx.VERTICAL)
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.HORIZONTAL)
@@ -236,8 +236,8 @@ class MainFrame(wx.Frame):
         sizer_main.Add(sizer_input_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
         # Input Widgets
-        for key in ['search', 'tag_group', 'tag_element', 'value_type', 'link', 'add']:
-            obj = self.button if key in {'search', 'link', 'add'} else self.input
+        for key in ['search', 'tag_group', 'tag_element', 'value_type', 'value_help', 'advanced']:
+            obj = self.button if key in {'search', 'value_help', 'advanced'} else self.input
             sizer_edit_widgets[key].Add(self.label[key], 0, wx.EXPAND, 0)
             sizer_edit_widgets[key].Add(obj[key], 0, wx.EXPAND, 0)
             proportion = 'tag' in key
@@ -247,8 +247,7 @@ class MainFrame(wx.Frame):
         sizer_value_keyword.Add(self.label['value'], 0, wx.LEFT, 5)
         row_sizer_value_help = wx.BoxSizer(wx.HORIZONTAL)
         row_sizer_value_help.Add(self.input['value'], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
-        row_sizer_value_help.Add(self.button['value_help'], 0, wx.LEFT | wx.RIGHT, 5)
-        row_sizer_value_help.Add(self.button['advanced'], 0, wx.LEFT | wx.RIGHT, 5)
+        row_sizer_value_help.Add(self.button['add'], 0, wx.LEFT | wx.RIGHT, 5)
         sizer_value_keyword.Add(row_sizer_value_help, 1, wx.EXPAND, 5)
         sizer_value_keyword.Add(self.label['keyword'], 0, wx.TOP | wx.LEFT, 5)
         sizer_value_keyword.Add(self.label['value_rep'], 0, wx.LEFT | wx.BOTTOM, 5)
@@ -467,7 +466,7 @@ class MainFrame(wx.Frame):
 
         # Can be expensive, on_save_dicom split to enable threading
         # calls do_save_dicom when done
-        self.value_generator()
+        self.calculate_value_generators()
 
     def do_save_dicom(self):
         error_log, history = self.apply_edits()  # Edits the loaded pydicom datasets
@@ -769,14 +768,14 @@ class MainFrame(wx.Frame):
     def add_parsed_data(self, msg):
         self.ds[msg['obj']] = msg['data']
 
-    def on_advanced(self,*evt):
+    def on_advanced(self, *evt):
         AdvancedSettings(self.current_options)
         self.update_preview()
 
     #################################################################################
     # Finally... run the DICOM editor and save DICOM files
     #################################################################################
-    def value_generator(self):
+    def calculate_value_generators(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
         self.value_generators = []
         for row in range(self.data_table.row_count):
@@ -792,34 +791,32 @@ class MainFrame(wx.Frame):
             value_generator = self.value_generators.pop(0)
             ValueGenProgressFrame(self.ds, value_generator, iteration, self.data_table.row_count)
         else:
-            self.do_save_dicom()
+            wx.CallAfter(self.do_save_dicom)
 
     def add_value_dicts(self, msg):
-        self.values_dicts.append(msg)
+        self.values_dicts.append(msg['data'])
 
     def get_table_row_data(self, row):
         row_data = self.data_table.get_row(row)
         group = row_data[0].split(',')[0][1:].strip()
         element = row_data[0].split(',')[1][:-1].strip()
-        row_data = {'tag': Tag(group, element),
-                    'keyword': row_data[1],
-                    'value_str': row_data[2],
-                    'value_type': get_type(row_data[3]),
-                    'options': self.all_options[row_data[4]]}
-        return row_data
+        return {'tag': Tag(group, element),
+                'keyword': row_data[1],
+                'value_str': row_data[2],
+                'value_type': get_type(row_data[3]),
+                'options': self.all_options[row_data[4]]}
 
     def apply_edits(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
-        error_log = []
-        history = []
+        error_log, history = [], []
         for row in range(self.data_table.row_count):
 
             row_data = self.get_table_row_data(row)
             tag = row_data['tag']
+
             keyword = row_data['keyword']
             value_str = row_data['value_str']
             value_type = row_data['value_type']
-
             values_dict = self.values_dicts[row]
 
             for file_path, ds in self.ds.items():
@@ -840,8 +837,10 @@ class MainFrame(wx.Frame):
                 except Exception as e:
                     err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
                     value = value_str if value_str else '[empty value]'
-                    error_log.append("Directory: %s\nFile: %s\n\tAttempt to edit %s to new value: %s\n\t%s\n" %
-                                     (dirname(file_path), basename(file_path), tag, value, err_msg))
+                    modality = ds.dcm.Modality if hasattr(ds.dcm, 'Modality') else 'Unknown'
+                    error_log.append("Directory: %s\nFile: %s\nModality: %s\n\t"
+                                     "Attempt to edit %s to new value: %s\n\t%s\n" %
+                                     (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
 
         return '\n'.join(error_log), history
 

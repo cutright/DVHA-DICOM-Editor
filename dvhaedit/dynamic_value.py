@@ -57,6 +57,10 @@ class ValueGenerator:
         else:
             self.file_paths = [file_path]
         self.data_sets = [data_sets[f] for f in self.file_paths]
+
+        file_count = len(self.file_paths)
+        if callback is not None:
+            callback(0, file_count)
         self.set_enum_instances()
         new_values = {}
 
@@ -90,6 +94,7 @@ class ValueGenerator:
 
     def set_enum_instances(self):
         """Collect all unique values for each of the enumerators"""
+        # TODO: incorporate callback function in __call__
         self.enum_instances = {'file': {}, 'value': {}}
         for key, instances in self.enum_instances.items():
             functions = [key[0] + f for f in ['enum', 'uid', 'rand']]
