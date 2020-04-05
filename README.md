@@ -1,4 +1,4 @@
-<img src='https://user-images.githubusercontent.com/4778878/78466176-d3109100-76c3-11ea-8c91-0e7f474d5616.png' align='right' width='450' alt="DVH Analytics screenshot">  
+<img src='https://user-images.githubusercontent.com/4778878/78466176-d3109100-76c3-11ea-8c91-0e7f474d5616.png' align='right' width='430' alt="DVH Analytics screenshot">  
 
 # DVHA DICOM Editor
 Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoenix) and [pydicom](https://github.com/pydicom/pydicom)  

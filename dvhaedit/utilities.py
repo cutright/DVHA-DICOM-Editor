@@ -13,6 +13,7 @@ General utilities borrowed from DVH Analytics
 import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
+import pickle
 import re
 from dvhaedit.paths import SCRIPT_DIR
 
@@ -144,6 +145,36 @@ def load_csv_from_file(abs_file_path):
                     data[columns[i]].append(value.strip().replace(';', ','))
 
     return columns, data
+
+
+def load_csv_string(csv_string):
+    csv_data = csv_string.split('\n')
+    column_row = csv_data.pop(0)
+    columns = [c.strip() for c in column_row.split(',')]
+    data = {c: [] for c in columns}
+    for row in csv_data:
+        for i, value in enumerate(row.split(',')):
+            data[columns[i]].append(value.strip().replace(';', ','))
+
+    return columns, data
+
+
+def save_object_to_file(obj, abs_file_path):
+    """
+    Save a python object acceptable for pickle to the provided file path
+    """
+    with open(abs_file_path, 'wb') as outfile:
+        pickle.dump(obj, outfile)
+
+
+def load_object_from_file(abs_file_path):
+    """
+    Load a pickled object from the provided absolute file path
+    """
+    if isfile(abs_file_path):
+        with open(abs_file_path, 'rb') as infile:
+            obj = pickle.load(infile)
+        return obj
 
 
 def remove_non_alphanumeric(some_string):

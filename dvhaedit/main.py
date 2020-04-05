@@ -26,7 +26,7 @@ from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    save_csv_to_file, load_csv_from_file, get_window_size, is_mac
+    get_window_size, is_mac, save_object_to_file, load_object_from_file, load_csv_string
 
 
 VERSION = '0.4rc1'
@@ -443,25 +443,36 @@ class MainFrame(wx.Frame):
             self.update_keyword()
             self.update_init_value()
             self.update_preview()
+            self.current_options = deepcopy(self.all_options[selected_data[0][0]])
 
     def on_save_template(self, *evt):
-        """Save the current tag edits to a CSV"""
-        dlg = wx.FileDialog(self, "Save template", "", wildcard='*.csv',
+        """Save the current tag edits to a pickle file"""
+        dlg = wx.FileDialog(self, "Save template", "", wildcard='*.pickle',
                             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
         if dlg.ShowModal() == wx.ID_OK:
-            save_csv_to_file(self.data_table.get_csv(), dlg.GetPath())
+            print(self.data_table.get_csv())
+            save_data = {'table': self.data_table.get_csv(), 'options': self.all_options}
+            save_object_to_file(save_data, dlg.GetPath())
         dlg.Destroy()
 
     def on_load_template(self, *evt):
-        """Load a CSV of tag edits"""
-        dlg = wx.FileDialog(self, "Load template", "", wildcard='*.csv', style=wx.FD_OPEN)
+        """Load a pickle file of tag edits"""
+        dlg = wx.FileDialog(self, "Load template", "", wildcard='*.pickle', style=wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
-            columns, data = load_csv_from_file(dlg.GetPath())
-            if columns == self.data_table.columns:
-                self.data_table.set_data(data, columns)
-                self.data_table.set_column_widths(auto=True)
-                self.update_save_template_enable()
-                self.update_save_dicom_enable()
+            try:
+                loaded_data = load_object_from_file(dlg.GetPath())
+
+                columns, data = load_csv_string(loaded_data['table'])
+                if columns == self.data_table.columns:
+                    self.data_table.set_data(data, columns)
+                    self.data_table.set_column_widths(auto=True)
+
+                self.all_options = loaded_data['options']
+            except Exception:
+                self.data_table.clear()
+
+        self.update_save_template_enable()
+        self.update_save_dicom_enable()
 
     def on_save_dicom(self, *evt):
         """Apply edits, check for errors, then run save_files"""
@@ -470,7 +481,7 @@ class MainFrame(wx.Frame):
                 if dlg.ShowModal() == wx.ID_NO:
                     return
 
-        # Can be expensive, on_save_dicom split to enable threading
+        # Can be expensive, on_save_dicom, split to enable threading
         # calls do_save_dicom when done
         self.calculate_value_generators()
 
@@ -702,6 +713,8 @@ class MainFrame(wx.Frame):
 
     def update_preview(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
+        # TODO: auto-update Value Type based on VR
+        # TODO: validate New Value against Value Type
         tag = self.tag
         value_str = self.value
         value_gen = ValueGenerator(value_str, tag.tag, self.current_options)

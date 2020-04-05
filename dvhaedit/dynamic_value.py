@@ -90,7 +90,7 @@ class ValueGenerator:
     def set_func_call_dict(self):
         """Create a dict of functions to input"""
         self.func_call = []
-        for f in self.value.split('*')[1::2]:
+        for f in str(self.value).split('*')[1::2]:
             func, param = self.split_call_str(f)
             self.func_call.append((func, param))
 
