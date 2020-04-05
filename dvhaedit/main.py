@@ -29,7 +29,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     get_window_size, is_mac, save_object_to_file, load_object_from_file
 
 
-VERSION = '0.4rc1'
+VERSION = '0.4rc2'
 
 
 class MainFrame(wx.Frame):

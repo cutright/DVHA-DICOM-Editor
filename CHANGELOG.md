@@ -1,6 +1,6 @@
 # Change log of DVHA DICOM Editor
 
-v0.4 (TBD)
+v0.4 (2020.04.05)
 --------------------
  - Random number generator functions: `vrand` and `frand`
  - Optionally set DICOM prefix and entropy source in "Advanced"

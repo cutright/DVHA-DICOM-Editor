@@ -1,5 +1,5 @@
 include dvhaedit_app.py
 include dvhaedit/*.py
+include dvhaedit/*.txt
 include CHANGELOG.md
 include README.md
-include LICENSE.txt
