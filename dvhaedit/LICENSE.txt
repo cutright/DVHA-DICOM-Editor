@@ -33,6 +33,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------
 
+ARTWORK
+
+DVHA DICOM editor logo designed by Dan Cutright, with the exception of two icons
+as noted below. Blue 'A' background logo from DVH Analytics.
+
+The following were last accessed on April 5, 2020:
+    iconfinder_pencil5_216687.png
+        - https://www.iconfinder.com/icons/216687/pencil_icon
+    iconfinder_tag1_216756.png
+        - https://www.iconfinder.com/icons/216756/tag_icon
+These two icons are free-for-use, designed by Daniel Bruce, with
+Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0) licence.
+
+
+------------------------------------------------------------------------------------
 
 DVHA DICOM Editor uses the following libraries
 
