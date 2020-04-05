@@ -26,7 +26,7 @@ from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    get_window_size, is_mac, save_object_to_file, load_object_from_file
+    get_window_size, is_mac, save_object_to_file, load_object_from_file, set_frame_icon
 
 
 VERSION = '0.4'
@@ -878,6 +878,7 @@ class MainApp(wx.App):
     def OnInit(self):
         self.SetAppName('DVHA DICOM Editor')
         self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor v%s" % VERSION)
+        set_frame_icon(self.frame)
         self.SetTopWindow(self.frame)
         self.frame.Show()
         return True

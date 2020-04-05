@@ -15,7 +15,7 @@ from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
 import pickle
 import re
-from dvhaedit.paths import SCRIPT_DIR
+from dvhaedit.paths import SCRIPT_DIR, WIN_FRAME_ICON
 
 
 def get_file_paths(start_path, search_sub_folders=False, extension=None):
@@ -218,3 +218,8 @@ def update_dynamic_value_help_txt(first_line_value='Dynamic Value Setting'):
 
     with open(join(SCRIPT_DIR, 'dynamic_value_help.txt'), 'w') as doc:
         doc.write('\n'.join(new_lines))
+
+
+def set_frame_icon(frame):
+    if not is_mac():
+        frame.SetIcon(wx.Icon(WIN_FRAME_ICON))
