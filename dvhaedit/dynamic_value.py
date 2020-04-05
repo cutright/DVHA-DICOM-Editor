@@ -12,6 +12,7 @@ Apply dynamic value functions
 
 from os import sep
 from os.path import normpath, splitext
+from pubsub import pub
 from pydicom.uid import generate_uid
 from secrets import randbelow
 from dvhaedit.paths import DYNAMIC_VALUE_HELP
@@ -59,14 +60,10 @@ class ValueGenerator:
         self.data_sets = [data_sets[f] for f in self.file_paths]
 
         file_count = len(self.file_paths)
-        if callback is not None:
-            callback(0, file_count)
         self.set_enum_instances()
         new_values = {}
 
-        file_count = len(self.file_paths)
-        if callback is not None:
-            callback(0, file_count)
+        self.value_generator_callback(0, file_count)
 
         for f_counter, f in enumerate(self.file_paths):
             new_value = self.value.split('*')
@@ -75,12 +72,17 @@ class ValueGenerator:
                     new_value[i] = str(self.get_value(call_str, f))
             new_values[f] = ''.join(new_value)
 
-            if callback is not None:
-                callback(f_counter+1, file_count)
+            self.value_generator_callback(f_counter+1, file_count)
 
         if file_path is not None:
             return new_values[file_path]
         return new_values
+
+    @staticmethod
+    def value_generator_callback(iteration, count_total):
+        msg = {'label': ' %s of %s' % (iteration, count_total),
+               'gauge': iteration / count_total}
+        pub.sendMessage("progress_update", msg=msg)
 
     #################################################################################
     # Setters
@@ -92,20 +94,43 @@ class ValueGenerator:
             func, param = self.split_call_str(f)
             self.func_call.append((func, param))
 
+    @staticmethod
+    def send_progress_update(progress, label='Initializing...'):
+        msg = {'label': label,
+               'gauge': progress}
+        pub.sendMessage("progress_update", msg=msg)
+
     def set_enum_instances(self):
         """Collect all unique values for each of the enumerators"""
-        # TODO: incorporate callback function in __call__
+        self.send_progress_update(0)
+        # Determine how many actions to perform, for progress indication
+        count = 0
         self.enum_instances = {'file': {}, 'value': {}}
+        for key in list(self.enum_instances):
+            functions = [key[0] + f for f in ['enum', 'uid', 'rand']]
+            parameters = self.get_parameters(functions)
+            for _ in parameters:
+                if key == 'file':
+                    count += 1
+                else:
+                    count += len(self.data_sets)
+
+        counter = 0.
         for key, instances in self.enum_instances.items():
             functions = [key[0] + f for f in ['enum', 'uid', 'rand']]
-            for index in self.get_parameters(functions):
+            parameters = self.get_parameters(functions)
+            for index in parameters:
                 if key == 'file':
                     enum = [self.file(index, f, True) for f in self.file_paths]
+                    self.send_progress_update(counter / count)
+                    counter += 1
                 else:
                     enum = []
                     for ds in self.data_sets:
                         enum.extend(ds.get_all_tag_values(self.tag))
                         enum = list(set(enum))
+                        self.send_progress_update(counter / count)
+                        counter += 1
                 instances[index] = sorted(list(set(enum)))
 
         # set uids
@@ -118,6 +143,7 @@ class ValueGenerator:
         self.uids = {'file': {}, 'value': {}}
         for key, instances in self.enum_instances.items():
             for index in self.get_parameters(key[0] + 'uid'):
+                self.send_progress_update(0.95, label='Generating UIDs...')
                 self.uids[key][index] = {i: generate_uid(prefix=prefix, entropy_srcs=entropy_srcs)
                                          for i in self.enum_instances[key][index]}
 
@@ -127,6 +153,7 @@ class ValueGenerator:
         self.rand = {'file': {}, 'value': {}}
         for key, instances in self.enum_instances.items():
             for index in self.get_parameters(key[0] + 'rand'):
+                self.send_progress_update(0.98, label='Generating random numbers...')
                 self.rand[key][index] = {i: str(randbelow(max_num)).zfill(digits)
                                          for i in self.enum_instances[key][index]}
 

@@ -433,7 +433,7 @@ class MainFrame(wx.Frame):
             element = tag[1].strip()
             self.input['tag_group'].SetValue(group)
             self.input['tag_element'].SetValue(element)
-            self.input['value_type'].SetValue(selected_data[1][3])
+            self.input['value_type'].SetValue(selected_data[0][4])
             self.update_keyword()
             self.update_init_value()
             self.update_preview()
@@ -791,8 +791,8 @@ class MainFrame(wx.Frame):
 
     def call_next_value_generator(self):
         if self.value_generators:
-            iteration = self.data_table.row_count - len(self.value_generators) + 1
             value_generator = self.value_generators.pop(0)
+            iteration = self.data_table.row_count - len(self.value_generators)
             ValueGenProgressFrame(self.ds, value_generator, iteration, self.data_table.row_count)
         else:
             wx.CallAfter(self.do_save_dicom)

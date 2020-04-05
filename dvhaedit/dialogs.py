@@ -267,16 +267,12 @@ class DynamicValueHelp(TextViewer):
 
 class ProgressFrame(wx.Dialog):
     """Create a window to display progress and begin provided worker"""
-    def __init__(self, obj_list, action, close_msg, action_msg=None, action_gui_phrase='Processing', title='Progress',
-                 custom_callback=None):
+    def __init__(self, obj_list, action, close_msg, action_msg=None, action_gui_phrase='Processing', title='Progress'):
         wx.Dialog.__init__(self, None)
 
         self.close_msg = close_msg
         self.worker_args = [obj_list, action, action_msg, action_gui_phrase, title]
-        self.custom_callback = custom_callback
         self.action_gui_phrase = action_gui_phrase
-        if custom_callback is not None:
-            self.worker_args.append(custom_callback)
 
         self.gauge = wx.Gauge(self, wx.ID_ANY, 100)
         self.label = wx.StaticText(self, wx.ID_ANY, "Progress Label:")
@@ -339,7 +335,7 @@ class ProgressFrame(wx.Dialog):
 
 
 class ProgressFrameWorker(Thread):
-    def __init__(self, obj_list, action, action_msg, action_gui_phrase, title, custom_call_back=None):
+    def __init__(self, obj_list, action, action_msg, action_gui_phrase, title):
         Thread.__init__(self)
 
         pub.sendMessage("progress_set_title", msg=title)
@@ -349,7 +345,6 @@ class ProgressFrameWorker(Thread):
         self.action = action
         self.action_msg = action_msg
         self.action_gui_phrase = action_gui_phrase
-        self.custom_call_back = custom_call_back
 
         self.start()
 
@@ -383,10 +378,7 @@ class ProgressFrameWorker(Thread):
     def do_action(self, obj, msg):
         pub.sendMessage("progress_update", msg=msg)
 
-        if self.custom_call_back is not None:
-            result = self.action(obj, callback=self.custom_call_back)
-        else:
-            result = self.action(obj)
+        result = self.action(obj)
         if self.action_msg is not None:
             msg = {'obj': obj, 'data': result}
             pub.sendMessage(self.action_msg, msg=msg)
@@ -432,15 +424,7 @@ class ValueGenProgressFrame(ProgressFrame):
                                close_msg='value_gen_complete',
                                action_msg='add_value_dicts',
                                action_gui_phrase='File:',
-                               title='Generating Values for Tag %s of %s' % (iteration, total_count),
-                               custom_callback=value_generator_callback)
-
-
-def value_generator_callback(iteration, count_total):
-    label = ' %s of %s' % (iteration, count_total) if iteration else 'Initializing...'
-    msg = {'label': label,
-           'gauge': iteration / count_total}
-    pub.sendMessage("progress_update", msg=msg)
+                               title='Generating Values for Tag %s of %s' % (iteration, total_count))
 
 
 class AdvancedSettings(wx.Dialog):
