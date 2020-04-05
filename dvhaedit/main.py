@@ -26,7 +26,7 @@ from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    get_window_size, is_mac, save_object_to_file, load_object_from_file, load_csv_string
+    get_window_size, is_mac, save_object_to_file, load_object_from_file
 
 
 VERSION = '0.4rc1'
@@ -450,8 +450,7 @@ class MainFrame(wx.Frame):
         dlg = wx.FileDialog(self, "Save template", "", wildcard='*.pickle',
                             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
         if dlg.ShowModal() == wx.ID_OK:
-            print(self.data_table.get_csv())
-            save_data = {'table': self.data_table.get_csv(), 'options': self.all_options}
+            save_data = {'table': self.data_table.get_save_data(), 'options': self.all_options}
             save_object_to_file(save_data, dlg.GetPath())
         dlg.Destroy()
 
@@ -461,12 +460,7 @@ class MainFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             try:
                 loaded_data = load_object_from_file(dlg.GetPath())
-
-                columns, data = load_csv_string(loaded_data['table'])
-                if columns == self.data_table.columns:
-                    self.data_table.set_data(data, columns)
-                    self.data_table.set_column_widths(auto=True)
-
+                self.data_table.load_save_data(loaded_data['table'])
                 self.all_options = loaded_data['options']
             except Exception:
                 self.data_table.clear()

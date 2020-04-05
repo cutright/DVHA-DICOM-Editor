@@ -147,18 +147,6 @@ def load_csv_from_file(abs_file_path):
     return columns, data
 
 
-def load_csv_string(csv_string):
-    csv_data = csv_string.split('\n')
-    column_row = csv_data.pop(0)
-    columns = [c.strip() for c in column_row.split(',')]
-    data = {c: [] for c in columns}
-    for row in csv_data:
-        for i, value in enumerate(row.split(',')):
-            data[columns[i]].append(value.strip().replace(';', ','))
-
-    return columns, data
-
-
 def save_object_to_file(obj, abs_file_path):
     """
     Save a python object acceptable for pickle to the provided file path
