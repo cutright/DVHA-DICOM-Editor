@@ -141,21 +141,50 @@ class ValueGenerator:
         if entropy_srcs == '':
             entropy_srcs = None
         self.uids = {'file': {}, 'value': {}}
+        uids = []
         for key, instances in self.enum_instances.items():
             for index in self.get_parameters(key[0] + 'uid'):
                 self.send_progress_update(0.95, label='Generating UIDs...')
-                self.uids[key][index] = {i: generate_uid(prefix=prefix, entropy_srcs=entropy_srcs)
-                                         for i in self.enum_instances[key][index]}
+                self.uids[key][index] = {}
+                for i in self.enum_instances[key][index]:
+                    found = False
+                    uid = ''
+                    while not found:  # ensure random number is not used twice
+                        uid = generate_uid(prefix=prefix, entropy_srcs=entropy_srcs)
+                        if uid not in uids:
+                            found = True
+                        elif entropy_srcs:
+                            entropy_srcs = [entropy_srcs[0] + '0']
+                    uids.append(uid)
+                    self.uids[key][index][i] = uid
 
         # set random numbers
         digits = self.options.rand_digits if hasattr(self.options, 'rand_digits') else 5
         max_num = 10 ** digits
         self.rand = {'file': {}, 'value': {}}
+        self.send_progress_update(0.98, label='Generating random numbers...')
+
+        # count the number of rand_numbers needed
+        count = 0
         for key, instances in self.enum_instances.items():
             for index in self.get_parameters(key[0] + 'rand'):
-                self.send_progress_update(0.98, label='Generating random numbers...')
-                self.rand[key][index] = {i: str(randbelow(max_num)).zfill(digits)
-                                         for i in self.enum_instances[key][index]}
+                count += len(self.enum_instances[key][index])
+
+        while max_num < count:  # ensure enough digits are used, to avoid infinite while loop below
+            max_num *= 10
+        random_numbers = []
+        for key, instances in self.enum_instances.items():
+            for index in self.get_parameters(key[0] + 'rand'):
+                self.rand[key][index] = {}
+                for i in self.enum_instances[key][index]:
+                    found = False
+                    random_number = 0
+                    while not found:  # ensure random number is not used twice
+                        random_number = randbelow(max_num)
+                        if random_number not in random_numbers:
+                            found = True
+                    random_numbers.append(random_number)
+                    self.rand[key][index][i] = str(random_numbers[-1]).zfill(digits)
 
     #################################################################################
     # Getters

@@ -455,34 +455,33 @@ def apply_edits(values_dicts, all_row_data, data_sets):
         tag = row_data['tag']
 
         keyword = row_data['keyword']
-        value_str = row_data['value_str']
         value_type = row_data['value_type']
         values_dict = values_dicts[row]
 
         for i, (file_path, ds) in enumerate(data_sets.items()):
             label = "Editing %s for file %s of %s" % (keyword, i+1, len(data_sets))
             apply_edits_callback(i, len(data_sets), label)
-            try:
-                if tag.tag in ds.dcm.keys():
+            # try:
+            if tag.tag in ds.dcm.keys():
+                new_value = value_type(values_dict[file_path])
+                old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
+                history.append([keyword, old_value, new_value])
+            else:
+                addresses = ds.find_tag(tag.tag)
+                if not addresses:
+                    raise Exception
+                for address in addresses:
                     new_value = value_type(values_dict[file_path])
-                    old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
+                    old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
                     history.append([keyword, old_value, new_value])
-                else:
-                    addresses = ds.find_tag(tag.tag)
-                    if not addresses:
-                        raise Exception
-                    for address in addresses:
-                        new_value = value_type(values_dict[file_path])
-                        old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
-                        history.append([keyword, old_value, new_value])
 
-            except Exception as e:
-                err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
-                value = value_str if value_str else '[empty value]'
-                modality = ds.dcm.Modality if hasattr(ds.dcm, 'Modality') else 'Unknown'
-                error_log.append("Directory: %s\nFile: %s\nModality: %s\n\t"
-                                 "Attempt to edit %s to new value: %s\n\t%s\n" %
-                                 (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
+            # except Exception as e:
+                # err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
+                # value = value_str if value_str else '[empty value]'
+                # modality = ds.dcm.Modality if hasattr(ds.dcm, 'Modality') else 'Unknown'
+                # error_log.append("Directory: %s\nFile: %s\nModality: %s\n\t"
+                #                  "Attempt to edit %s to new value: %s\n\t%s\n" %
+                #                  (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
 
     return {'error_log': '\n'.join(error_log),
             'history': history,

@@ -29,7 +29,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     get_window_size, is_mac, save_object_to_file, load_object_from_file, set_frame_icon
 
 
-VERSION = '0.4'
+VERSION = '0.4.1'
 
 
 class MainFrame(wx.Frame):
@@ -734,6 +734,7 @@ class MainFrame(wx.Frame):
         """Update the stored DICOMEditor objects in self.ds"""
         self.get_files()
         self.ds = {}
+        self.values_dicts = []
         ParsingProgressFrame(self.file_paths)
 
     #################################################################################
