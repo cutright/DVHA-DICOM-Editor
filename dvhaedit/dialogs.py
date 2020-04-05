@@ -11,10 +11,15 @@ Classes used to edit pydicom datasets
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 import wx
+from functools import partial
+from os.path import basename, dirname
+import re
 from pubsub import pub
 from queue import Queue
 from threading import Thread
 from time import sleep
+from pydicom.datadict import keyword_dict
+from pydicom.uid import RE_VALID_UID_PREFIX
 from dvhaedit.data_table import DataTable
 from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
 from dvhaedit.dynamic_value import HELP_TEXT
@@ -41,14 +46,9 @@ class ErrorDialog:
 class AskYesNo(wx.MessageDialog):
     """Simple Yes/No MessageDialog"""
 
-    def __init__(self, parent, msg, caption="Are you sure?", flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT):
+    def __init__(self, parent, msg, caption="Are you sure?",
+                 flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT, style=wx.CENTRE):
         wx.MessageDialog.__init__(self, parent, msg, caption, flags)
-
-    @property
-    def run(self):
-        ans = self.ShowModal() == wx.YES
-        self.Destroy()
-        return ans
 
 
 class ViewErrorLog(wx.Dialog):
@@ -207,7 +207,7 @@ class TagSearchDialog(wx.Dialog):
             self.parent.input['tag_group'].SetValue(tag.group)
             self.parent.input['tag_element'].SetValue(tag.element)
             self.parent.update_init_value()
-            self.parent.update_description()
+            self.parent.update_keyword()
 
     def on_double_click(self, evt):
         """Treat double-click the same as selecting a row then clicking Select"""
@@ -274,6 +274,7 @@ class ProgressFrame(wx.Dialog):
 
         self.close_msg = close_msg
         self.worker_args = [obj_list, action, action_msg, action_gui_phrase, title]
+        self.action_gui_phrase = action_gui_phrase
 
         self.gauge = wx.Gauge(self, wx.ID_ANY, 100)
         self.label = wx.StaticText(self, wx.ID_ANY, "Progress Label:")
@@ -324,7 +325,8 @@ class ProgressFrame(wx.Dialog):
         :param msg: a dictionary with keys of 'label' and 'gauge' text and progress fraction, respectively
         :type msg: dict
         """
-        wx.CallAfter(self.label.SetLabelText, msg['label'])
+        label = msg['label']
+        wx.CallAfter(self.label.SetLabelText, label)
         wx.CallAfter(self.gauge.SetValue, int(100 * msg['gauge']))
 
     def close(self):
@@ -361,7 +363,7 @@ class ProgressFrameWorker(Thread):
         queue = Queue()
         for i, obj in enumerate(self.obj_list):
             msg = {'label': '%s %s of %s' % (self.action_gui_phrase, i + 1, self.obj_count),
-                   'gauge': i / self.obj_count}
+                   'gauge': float(i) / self.obj_count}
             queue.put((obj, msg))
         return queue
 
@@ -371,7 +373,7 @@ class ProgressFrameWorker(Thread):
             self.do_action(*parameters)
             queue.task_done()
 
-        msg = {'label': 'Process Complete: %s file%s' % (self.obj_count, ['', 's'][self.obj_count != 1]),
+        msg = {'label': 'Process Complete',
                'gauge': 1.}
         pub.sendMessage("progress_update", msg=msg)
 
@@ -398,3 +400,202 @@ class SavingProgressFrame(ProgressFrame):
         ProgressFrame.__init__(self, data_sets, save_dicom, close_msg='save_complete',
                                action_gui_phrase='Saving File',
                                title='Saving DICOM Data')
+
+
+class RefSyncProgressFrame(ProgressFrame):
+    """Create a window to display Referenced tag syncing progress and begin SaveWorker"""
+    def __init__(self, history, data_sets, check_all_tags):
+        ProgressFrame.__init__(self, history, partial(update_referenced_tags, data_sets, check_all_tags),
+                               close_msg='ref_sync_complete',
+                               action_gui_phrase='Checking References for Tag:',
+                               title='Checking for Referenced Tags')
+
+
+def update_referenced_tags(data_sets, check_all_tags, history_row):
+    keyword, old_value, new_value = tuple(history_row)
+    if "Referenced%s" % keyword in list(keyword_dict):
+        for ds in data_sets:
+            ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
+
+
+class ValueGenProgressFrame(ProgressFrame):
+    """Create a window to display value generation progress and begin SaveWorker"""
+    def __init__(self, data_sets, value_generator, iteration, total_count):
+
+        ProgressFrame.__init__(self, [data_sets], value_generator,
+                               close_msg='value_gen_complete',
+                               action_msg='add_value_dicts',
+                               action_gui_phrase='File:',
+                               title='Generating Values for Tag %s of %s' % (iteration, total_count))
+
+
+class ApplyEditsProgressFrame(ProgressFrame):
+    """Create a window to display value generation progress and begin SaveWorker"""
+    def __init__(self, data_sets, values_dicts, all_row_data):
+
+        ProgressFrame.__init__(self, [data_sets], partial(apply_edits, values_dicts, all_row_data),
+                               close_msg='do_save_dicom',
+                               action_msg='update_dicom_edits',
+                               action_gui_phrase='',
+                               title='Editing DICOM Data')
+
+
+def apply_edits_callback(iteration, count_total, label):
+    msg = {'label': label,
+           'gauge': iteration / count_total}
+    pub.sendMessage("progress_update", msg=msg)
+
+
+def apply_edits(values_dicts, all_row_data, data_sets):
+    """Apply the tag edits to every file in self.ds, return any errors"""
+    error_log, history = [], []
+    for row in range(len(all_row_data)):
+
+        row_data = all_row_data[row]
+        tag = row_data['tag']
+
+        keyword = row_data['keyword']
+        value_str = row_data['value_str']
+        value_type = row_data['value_type']
+        values_dict = values_dicts[row]
+
+        for i, (file_path, ds) in enumerate(data_sets.items()):
+            label = "Editing %s for file %s of %s" % (keyword, i+1, len(data_sets))
+            apply_edits_callback(i, len(data_sets), label)
+            try:
+                if tag.tag in ds.dcm.keys():
+                    new_value = value_type(values_dict[file_path])
+                    old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
+                    history.append([keyword, old_value, new_value])
+                else:
+                    addresses = ds.find_tag(tag.tag)
+                    if not addresses:
+                        raise Exception
+                    for address in addresses:
+                        new_value = value_type(values_dict[file_path])
+                        old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
+                        history.append([keyword, old_value, new_value])
+
+            except Exception as e:
+                err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
+                value = value_str if value_str else '[empty value]'
+                modality = ds.dcm.Modality if hasattr(ds.dcm, 'Modality') else 'Unknown'
+                error_log.append("Directory: %s\nFile: %s\nModality: %s\n\t"
+                                 "Attempt to edit %s to new value: %s\n\t%s\n" %
+                                 (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
+
+    return {'error_log': '\n'.join(error_log),
+            'history': history,
+            'ds': data_sets}
+
+
+class AdvancedSettings(wx.Dialog):
+    def __init__(self, options):
+        wx.Dialog.__init__(self, None, title='User Settings')
+
+        self.options = options
+
+        key_map = {'dicom_prefix': 'Prefix:'}
+        self.combo_box = {key: wx.ComboBox(self, wx.ID_ANY, "") for key in key_map.keys()}
+        self.label = {key: wx.StaticText(self, wx.ID_ANY, value) for key, value in key_map.items()}
+
+        key_map = {'entropy_source': 'Entropy Source:', 'rand_digits': 'Digits:'}
+        self.text_ctrl = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in key_map.keys()}
+        for key, value in key_map.items():
+            self.label[key] = wx.StaticText(self, wx.ID_ANY, value)
+
+        self.button = {'ok': wx.Button(self, wx.ID_OK, 'OK'),
+                       'cancel': wx.Button(self, wx.ID_CANCEL, 'Cancel')}
+
+        self.valid_prefix_pattern = re.compile(RE_VALID_UID_PREFIX)
+
+        self.__set_properties()
+        self.__do_bind()
+        self.__do_layout()
+
+        self.run()
+
+    def __set_properties(self):
+        self.combo_box['dicom_prefix'].SetItems(sorted(list(self.options.prefix_dict)))
+        self.combo_box['dicom_prefix'].SetValue(self.options.prefix)
+
+        self.text_ctrl['entropy_source'].SetValue(self.options.entropy_source)
+
+        self.text_ctrl['rand_digits'].SetValue(str(self.options.rand_digits))
+
+        self.SetMinSize(get_window_size(0.4, 0.2))
+
+    def __do_bind(self):
+        self.Bind(wx.EVT_TEXT, self.update_ok_enable, id=self.text_ctrl['rand_digits'].GetId())
+        self.Bind(wx.EVT_TEXT, self.update_ok_enable, id=self.combo_box['dicom_prefix'].GetId())
+        self.Bind(wx.EVT_COMBOBOX, self.update_ok_enable, id=self.combo_box['dicom_prefix'].GetId())
+
+    def __do_layout(self):
+        sizer_wrapper = wx.BoxSizer(wx.VERTICAL)
+        sizer_main = wx.BoxSizer(wx.VERTICAL)
+        sizer_dicom = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "DICOM UID Generator"), wx.VERTICAL)
+        sizer_rand = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Random Number Generator"), wx.VERTICAL)
+        sizer_buttons = wx.BoxSizer(wx.HORIZONTAL)
+
+        sizer_dicom.Add(self.label['dicom_prefix'], 0, wx.EXPAND, 0)
+        sizer_dicom.Add(self.combo_box['dicom_prefix'], 0, wx.EXPAND, 0)
+        sizer_dicom.Add(self.label['entropy_source'], 0, wx.EXPAND, 0)
+        sizer_dicom.Add(self.text_ctrl['entropy_source'], 0, wx.EXPAND, 0)
+        sizer_main.Add(sizer_dicom, 1, wx.EXPAND, wx.ALL, 5)
+
+        sizer_rand.Add(self.label['rand_digits'], 0, wx.EXPAND, 0)
+        sizer_rand.Add(self.text_ctrl['rand_digits'], 0, 0, 0)
+        sizer_main.Add(sizer_rand, 0, wx.EXPAND | wx.ALL, 0)  # Has 5 border built-in???
+
+        sizer_buttons.Add(self.button['ok'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_buttons.Add(self.button['cancel'], 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+        sizer_main.Add(sizer_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
+
+        sizer_wrapper.Add(sizer_main, 0, wx.EXPAND | wx.ALL, 5)
+
+        self.SetSizer(sizer_wrapper)
+        self.Fit()
+        self.Layout()
+        self.Center()
+
+    def run(self):
+        if self.ShowModal() == wx.ID_OK:
+            self.apply_settings()
+        self.Destroy()
+
+    def apply_settings(self):
+        self.set_prefix()
+        self.set_entropy()
+        self.set_rand_digits()
+
+    def set_prefix(self):
+        self.options.prefix = self.prefix
+
+    def set_entropy(self):
+        self.options.entropy_source = self.text_ctrl['entropy_source'].GetValue()
+
+    def set_rand_digits(self):
+        self.options.rand_digits = int(self.text_ctrl['rand_digits'].GetValue())
+
+    def update_ok_enable(self, *evt):
+        self.button['ok'].Enable(self.is_input_valid)
+
+    @property
+    def is_input_valid(self):
+        return self.is_rand_digit_valid and self.is_prefix_valid
+
+    @property
+    def is_rand_digit_valid(self):
+        value = self.text_ctrl['rand_digits'].GetValue()
+        return value.isdigit() and 0 < int(value) <= 64
+
+    @property
+    def prefix(self):
+        new_value = self.combo_box['dicom_prefix'].GetValue()
+        if new_value in self.options.prefix_dict.keys():
+            new_value = self.options.prefix_dict[new_value] + '.'
+        return new_value
+
+    @property
+    def is_prefix_valid(self):
+        return self.valid_prefix_pattern.sub('', self.prefix) == ''

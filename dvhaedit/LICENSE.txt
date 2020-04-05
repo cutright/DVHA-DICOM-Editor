@@ -1,4 +1,4 @@
-Copyright (c) 2016-2020 Dan Cutright
+Copyright (c) 2020 Dan Cutright
 
 All rights reserved.
 
@@ -33,6 +33,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------
 
+ARTWORK
+
+DVHA DICOM editor logo designed by Dan Cutright, with the exception of two icons
+as noted below. Blue 'A' background logo from DVH Analytics.
+
+The following were last accessed on April 5, 2020:
+    iconfinder_pencil5_216687.png
+        - https://www.iconfinder.com/icons/216687/pencil_icon
+    iconfinder_tag1_216756.png
+        - https://www.iconfinder.com/icons/216756/tag_icon
+These two icons are free-for-use, designed by Daniel Bruce, with
+Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0) licence.
+
+
+------------------------------------------------------------------------------------
 
 DVHA DICOM Editor uses the following libraries
 
@@ -153,3 +168,29 @@ such code and/or adjust the licensing conditions notice accordingly.
 choice whether to permit this exception to apply to your modifications.  If
 you do not wish that, you must delete the exception notice from such code
 and/or adjust the licensing conditions notice accordingly.
+
+------------------------------------------------------------------------------------
+PyPubSub
+
+Copyright (c) since 2006, Oliver Schoenborn
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

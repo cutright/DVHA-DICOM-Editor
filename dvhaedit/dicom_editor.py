@@ -13,6 +13,7 @@ Classes used to edit pydicom datasets
 import pydicom
 from pydicom.datadict import keyword_dict, get_entry
 from pydicom._dicom_dict import DicomDictionary
+from pydicom._uid_dict import UID_dictionary
 from dvhaedit.utilities import remove_non_alphanumeric, get_sorted_indices
 
 
@@ -30,32 +31,88 @@ class DICOMEditor:
         else:
             self.dcm = dcm
 
+        self.init_tag_values = {}
+        self.tree = {}
+
         self.output_path = None
 
-    def edit_tag(self, tag, new_value):
+    def edit_tag(self, new_value, tag, address=None):
         """
         Change a DICOM tag value
         :param tag: the DICOM tag of interest
         :type tag: Tag
         :param new_value: new value of the DICOM tag
+        :param address: an address is required for tags within sequences
         """
-        self.dcm[tag].value = new_value
+        if address is None:
+            old_value = self.dcm[tag].value
+            self.init_tag_values[tag] = old_value
+            self.dcm[tag].value = new_value
+        else:
+            element = self.get_element(tag, address)
+            old_value = element.value
+            element.value = new_value
+        return old_value, self.get_tag_value(tag, address)
 
-    def get_tag_value(self, tag):
+    def sync_referenced_tag(self, keyword, old_value, new_value, check_all_tags=False):
+        """
+        Check if there is a Referenced tag with matching value, then set to new_value if so
+        :param keyword: DICOM tag keyword
+        :type keyword: str
+        :param old_value: if Referenced+keyword tag value is this value, update to new_value
+        :param new_value: new value of tag if connected
+        :param check_all_tags: Set to True to check every tag in the dataset,
+        otherwise only SQ and tags with Referenced in their keywords
+        :type check_all_tags: bool
+        """
+        if check_all_tags:
+            addresses = self.find_all_tags_with_value(old_value, vr='UI')
+        else:
+            tag = keyword_dict.get("Referenced%s" % keyword)
+            addresses = self.find_tag(tag, referenced_mode=True)
+
+        for address in addresses:
+            tag = address[-1][0]
+            if self.get_tag_value(tag, address=address) == old_value:
+                self.edit_tag(new_value, tag, address=address)
+
+    def get_tag_value(self, tag, address=None):
         """
         Get the current value of the provided DICOM tag
         :param tag: the DICOM tag of interest
         :type tag: Tag
+        :param address: if tag is within a sequence, an address is needed which is a list of [tag, index]
+        :type address: list
         """
-        return self.dcm[tag].value
+        return self.get_element(tag, address).value
 
-    def get_tag_name(self, tag):
+    def get_all_tag_values(self, tag):
+        return list(set([address[-1][1] for address in self.find_tag(tag)]))
+
+    def get_element(self, tag, address=None):
+        """
+        Get the element of the provided DICOM tag
+        :param tag: the DICOM tag of interest
+        :type tag: Tag
+        :param address: if tag is within a sequence, an address is needed which is a list of [tag, index]
+        :type address: list
+        """
+        if address is None:
+            return self.dcm[tag]
+
+        element = self.dcm
+        for sequence in address[:-1]:  # Final item in address is [tag, None]
+            tag_, index_ = tuple(sequence)
+            element = element[tag_][index_]
+        return element[tag]
+
+    def get_tag_keyword(self, tag):
         """
         Get the DICOM tag attribute (name)
         :param tag: the DICOM tag of interest
         :type tag: Tag
         """
-        return self.dcm[tag].name
+        return self.dcm[tag].keyword
 
     def get_tag_type(self, tag):
         """
@@ -85,6 +142,46 @@ class DICOMEditor:
             return str(self.dcm.Modality)
         except Exception:
             return 'Not Found'
+
+    def find_all_tags_with_vr(self, vr):
+        return self.find_tag(None, vr=vr)
+
+    def find_all_tags_with_value(self, value, vr=None):
+        return self.find_tag(None, value=value, vr=vr)
+
+    def find_tag(self, tag, vr=None, referenced_mode=False, value=None):
+        """Find all instances of tag in the pydicom dataset, return tags and indices pointing to input tag"""
+        # address is a list of all values for tag, with its location
+        # each item in the list has a length equal to number of tags required to identify the value
+        # Example:
+        #   BeamMeterSet (300A, 0086) for RT PLan is accessed via FractionGroupSequence -> ReferencedBeamSequence
+        #   Therefore, each row in addresses will be:
+        #     [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index], [<BeamMeterSet tag>, None]]
+        # Addresses store the int representation of tag
+        #
+        # To find all tags with a specified VR, set vr and set tag to None
+
+        addresses = []
+        self._find_tag_instances(tag, self.dcm, addresses, vr=vr, referenced_mode=referenced_mode, value=value)
+        return addresses
+
+    def _find_tag_instances(self, tag, data_set, addresses, parent=None, vr=None, referenced_mode=False, value=None):
+        """recursively walk through data_set sequences, collect addresses with the provided tag"""
+        if referenced_mode:
+            vr = 'UI'
+        if parent is None:
+            parent = []
+        for elem in data_set:
+            if not referenced_mode or 'Referenced' in elem.keyword:
+                if hasattr(elem, 'VR') and elem.VR == 'SQ':
+                    for i, seq_item in enumerate(elem):
+                        self._find_tag_instances(tag, seq_item, addresses, parent + [[int(elem.tag), i]])
+                elif tag is None or \
+                        (hasattr(elem, 'tag') and (elem.tag == tag or
+                                                   (referenced_mode and 'Referenced' in elem.keyword))):
+                    if (vr is None or vr == elem.VR) and (value is None or (elem.VR == vr and elem.value == value)):
+                        v = elem.value if hasattr(elem, 'value') else None
+                        addresses.append(parent + [[int(elem.tag), v]])
 
 
 class Tag:
@@ -135,9 +232,29 @@ class Tag:
 
     @property
     def vr(self):
+        return self.get_entry('VR')
+
+    @property
+    def vm(self):
+        return self.get_entry('VM')
+
+    @property
+    def name(self):
+        return self.get_entry('name')
+
+    @property
+    def is_retired(self):
+        return self.get_entry('is_retired')
+
+    @property
+    def keyword(self):
+        return self.get_entry('keyword')
+
+    def get_entry(self, tag_property):
+        index = ['VR', 'VM', 'name', 'is_retired', 'keyword'].index(tag_property)
         if not self.has_x and self.group and self.element:
             try:
-                return get_entry(self.tag_as_int)[0]
+                return get_entry(self.tag_as_int)[index]
             except KeyError:
                 pass
         return 'Not Found'
@@ -209,3 +326,14 @@ class TagSearch:
 def save_dicom(data_set):
     """Helper function for the Save Worker/Thread"""
     data_set.save_to_file()
+
+
+def get_uid_prefixes():
+    prefix_dict = {}
+    for prefix, data in UID_dictionary.items():
+        if data[0]:
+            key = "%s - %s" % (data[0], data[1])
+            if data[3].lower() == 'retired':
+                key = key + ' (Retired)'
+            prefix_dict[key] = prefix
+    return prefix_dict

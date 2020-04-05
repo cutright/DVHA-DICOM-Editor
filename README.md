@@ -1,4 +1,4 @@
-<img src='https://user-images.githubusercontent.com/4778878/78034714-b411a800-732d-11ea-8a5e-510d371b50ae.png' align='right' width='400' alt="DVH Analytics screenshot">  
+<img src='https://user-images.githubusercontent.com/4778878/78466176-d3109100-76c3-11ea-8c91-0e7f474d5616.png' align='right' width='430' alt="DVH Analytics screenshot">  
 
 # DVHA DICOM Editor
 Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoenix) and [pydicom](https://github.com/pydicom/pydicom)  
@@ -10,6 +10,10 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
     * File paths
     * Initial DICOM tag values
     * DICOM compliant UIDs
+        * Lookup DICOM prefixes
+        * Set entropy source for UID generation
+        * Maintain cross-file UID links
+    * Randomly generated numbers
 
 <a href="https://pypi.org/project/dvha-edit/">
         <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>
@@ -34,21 +38,21 @@ python dvhaedit_app.py
 Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 
 Dynamic Value Setting
----------
+------------------------------------------------------------------------------
 Users can dynamically define new DICOM tag values based on file path or initial DICOM tag values.
 
 ### Available Functions
 * File path / Tag Value:
     * `file[n]`: the n<sup>th</sup> component of the file path
-    * `val[n]`: DICOM tag value, n=-1 being tag value, n=-2 the parent value, etc.
+    * `val`: DICOM tag value
 * Enumeration:
     * `fenum[n]`: an iterator based on `file[n]`
-    * `venum[n]`: an iterator based on `val[n]` 
+    * `venum`: an iterator based on `val` 
 * DICOM UID
-    * `fuid[n]` and `vuid[n]`: same as `fenum`/`venum`, except the enumeration value is replaced with a DICOM compliant UID
-
-**NOTE**: DICOM tags that are within sequences are not yet enabled, so `val`, `venum`, and `vuid` functions 
-currently ignore `n`, although n must still be an integer.
+    * `fuid[n]` and `vuid`: same as `fenum`/`venum`, except the enumeration value is replaced with a 
+    DICOM compliant UID
+* Random Number (w/ `secret.randbelow`)
+    * `frand[n]` and `vrand`: same as DICOM UID functions except the value is a random integer
 
 ### Examples
 For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file_2.dcm`:
@@ -68,10 +72,10 @@ For a directory `/some/file/path/ANON0001/` containing files `file_1.dcm`, `file
         * 1_AnotherString
         * 1_AnotherString
 * *Value Enumeration*:
-    * NOTE: Assume each file has the same StudyInstanceUID but different SOPInstanceUIDs
-    * `*file[-2]*_*venum[-1]*` used with SOPInstanceUID tag
+    * NOTE: Assume these two files have the same StudyInstanceUID but different SOPInstanceUIDs
+    * `*file[-2]*_*venum*` used with SOPInstanceUID tag
         * ANON0001_1
         * ANON0001_2
-    * `*file[-2]*_*venum[-1]*` used with StudyInstanceUID tag
+    * `*file[-2]*_*venum*` used with StudyInstanceUID tag
         * ANON0001_1
         * ANON0001_1

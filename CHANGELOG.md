@@ -1,5 +1,12 @@
 # Change log of DVHA DICOM Editor
 
+v0.4 (2020.04.05)
+--------------------
+ - Random number generator functions: `vrand` and `frand`
+ - Optionally set DICOM prefix and entropy source in "Advanced"
+ - Keep cross-file UID connections by updating "Referenced" tags
+ - Value functions no longer have an index parameter (parent DICOM elements don't have a value)
+
 v0.3 (2020.03.31)
 --------------------
  - Catch tag edit exceptions, display error log in window
