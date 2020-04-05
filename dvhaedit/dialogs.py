@@ -12,6 +12,7 @@ Classes used to edit pydicom datasets
 
 import wx
 from functools import partial
+from os.path import basename, dirname
 import re
 from pubsub import pub
 from queue import Queue
@@ -45,7 +46,8 @@ class ErrorDialog:
 class AskYesNo(wx.MessageDialog):
     """Simple Yes/No MessageDialog"""
 
-    def __init__(self, parent, msg, caption="Are you sure?", flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT):
+    def __init__(self, parent, msg, caption="Are you sure?",
+                 flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT, style=wx.CENTRE):
         wx.MessageDialog.__init__(self, parent, msg, caption, flags)
 
 
@@ -425,6 +427,66 @@ class ValueGenProgressFrame(ProgressFrame):
                                action_msg='add_value_dicts',
                                action_gui_phrase='File:',
                                title='Generating Values for Tag %s of %s' % (iteration, total_count))
+
+
+class ApplyEditsProgressFrame(ProgressFrame):
+    """Create a window to display value generation progress and begin SaveWorker"""
+    def __init__(self, data_sets, values_dicts, all_row_data):
+
+        ProgressFrame.__init__(self, [data_sets], partial(apply_edits, values_dicts, all_row_data),
+                               close_msg='do_save_dicom',
+                               action_msg='update_dicom_edits',
+                               action_gui_phrase='',
+                               title='Editing DICOM Data')
+
+
+def apply_edits_callback(iteration, count_total, label):
+    msg = {'label': label,
+           'gauge': iteration / count_total}
+    pub.sendMessage("progress_update", msg=msg)
+
+
+def apply_edits(values_dicts, all_row_data, data_sets):
+    """Apply the tag edits to every file in self.ds, return any errors"""
+    error_log, history = [], []
+    for row in range(len(all_row_data)):
+
+        row_data = all_row_data[row]
+        tag = row_data['tag']
+
+        keyword = row_data['keyword']
+        value_str = row_data['value_str']
+        value_type = row_data['value_type']
+        values_dict = values_dicts[row]
+
+        for i, (file_path, ds) in enumerate(data_sets.items()):
+            label = "Editing %s for file %s of %s" % (keyword, i+1, len(data_sets))
+            apply_edits_callback(i, len(data_sets), label)
+            try:
+                if tag.tag in ds.dcm.keys():
+                    new_value = value_type(values_dict[file_path])
+                    old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
+                    history.append([keyword, old_value, new_value])
+                else:
+                    addresses = ds.find_tag(tag.tag)
+                    if not addresses:
+                        raise Exception
+                    for address in addresses:
+                        new_value = value_type(values_dict[file_path])
+                        old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
+                        history.append([keyword, old_value, new_value])
+
+            except Exception as e:
+                err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
+                value = value_str if value_str else '[empty value]'
+                modality = ds.dcm.Modality if hasattr(ds.dcm, 'Modality') else 'Unknown'
+                error_log.append("Directory: %s\nFile: %s\nModality: %s\n\t"
+                                 "Attempt to edit %s to new value: %s\n\t%s\n" %
+                                 (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
+
+    return {'error_log': '\n'.join(error_log),
+            'history': history,
+            'ds': data_sets}
 
 
 class AdvancedSettings(wx.Dialog):

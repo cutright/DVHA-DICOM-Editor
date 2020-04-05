@@ -80,7 +80,7 @@ class ValueGenerator:
 
     @staticmethod
     def value_generator_callback(iteration, count_total):
-        msg = {'label': ' %s of %s' % (iteration, count_total),
+        msg = {'label': 'Calculating values for file %s of %s' % (iteration, count_total),
                'gauge': iteration / count_total}
         pub.sendMessage("progress_update", msg=msg)
 

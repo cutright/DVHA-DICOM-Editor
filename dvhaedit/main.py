@@ -20,7 +20,8 @@ from pydicom.datadict import keyword_dict
 import webbrowser
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,ParsingProgressFrame,\
-    SavingProgressFrame, DynamicValueHelp, AdvancedSettings, RefSyncProgressFrame, ValueGenProgressFrame
+    SavingProgressFrame, DynamicValueHelp, AdvancedSettings, RefSyncProgressFrame, ValueGenProgressFrame,\
+    ApplyEditsProgressFrame
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
@@ -28,7 +29,7 @@ from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_typ
     save_csv_to_file, load_csv_from_file, get_window_size, is_mac
 
 
-VERSION = '0.4dev2'
+VERSION = '0.4rc1'
 
 
 class MainFrame(wx.Frame):
@@ -43,6 +44,9 @@ class MainFrame(wx.Frame):
         self.current_options = Options()
         self.value_generators = []
         self.values_dicts = []
+
+        self.error_log = ''
+        self.history = []
 
         # Create GUI widgets
         keys = ['in_dir', 'tag_group', 'tag_element', 'value', 'out_dir', 'prepend_file_name']
@@ -194,6 +198,8 @@ class MainFrame(wx.Frame):
         pub.subscribe(self.do_saving_progress_frame, 'ref_sync_complete')
         pub.subscribe(self.add_value_dicts, 'add_value_dicts')
         pub.subscribe(self.call_next_value_generator, 'value_gen_complete')
+        pub.subscribe(self.update_dicom_edits, 'update_dicom_edits')
+        pub.subscribe(self.do_save_dicom, 'do_save_dicom')
 
     def on_parse_complete(self):
         self.update_combobox_files()
@@ -468,11 +474,19 @@ class MainFrame(wx.Frame):
         # calls do_save_dicom when done
         self.calculate_value_generators()
 
+    def apply_edits(self):
+        all_row_data = [self.get_table_row_data(row) for row in range(self.data_table.row_count)]
+        ApplyEditsProgressFrame(self.ds, self.values_dicts, all_row_data)
+
+    def update_dicom_edits(self, msg):
+        self.history = msg['data']['history']
+        self.error_log = msg['data']['error_log']
+        self.ds = msg['data']['ds']
+
     def do_save_dicom(self):
-        error_log, history = self.apply_edits()  # Edits the loaded pydicom datasets
-        if error_log:
-            ViewErrorLog(error_log)
-            with AskYesNo(self, "Continue writing DICOM files anyway?") as dlg:
+        if self.error_log:
+            ViewErrorLog(self.error_log)
+            with AskYesNo(self, "Ignore errors and write DICOM files anyway?") as dlg:
                 if dlg.ShowModal() == wx.ID_NO:
                     return
 
@@ -485,9 +499,9 @@ class MainFrame(wx.Frame):
                     return
         self.set_output_paths()
 
-        if self.update_referenced_tags.GetSelection() and self.a_referenced_tag_exists(history):
+        if self.update_referenced_tags.GetSelection() and self.a_referenced_tag_exists(self.history):
             check_all_tags = True if self.update_referenced_tags.GetSelection() == 2 else False
-            RefSyncProgressFrame(history, self.ds.values(), check_all_tags)
+            RefSyncProgressFrame(self.history, self.ds.values(), check_all_tags)
             # This will call SavingProgressFrame when done
         else:
             self.do_saving_progress_frame()
@@ -795,7 +809,7 @@ class MainFrame(wx.Frame):
             iteration = self.data_table.row_count - len(self.value_generators)
             ValueGenProgressFrame(self.ds, value_generator, iteration, self.data_table.row_count)
         else:
-            wx.CallAfter(self.do_save_dicom)
+            wx.CallAfter(self.apply_edits)
 
     def add_value_dicts(self, msg):
         self.values_dicts.append(msg['data'])
@@ -809,44 +823,6 @@ class MainFrame(wx.Frame):
                 'value_str': row_data[3],
                 'value_type': get_type(row_data[4]),
                 'options': self.all_options[row_data[0]]}
-
-    def apply_edits(self):
-        """Apply the tag edits to every file in self.ds, return any errors"""
-        error_log, history = [], []
-        for row in range(self.data_table.row_count):
-
-            row_data = self.get_table_row_data(row)
-            tag = row_data['tag']
-
-            keyword = row_data['keyword']
-            value_str = row_data['value_str']
-            value_type = row_data['value_type']
-            values_dict = self.values_dicts[row]
-
-            for file_path, ds in self.ds.items():
-                try:
-                    if tag.tag in ds.dcm.keys():
-                        new_value = value_type(values_dict[file_path])
-                        old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
-                        history.append([keyword, old_value, new_value])
-                    else:
-                        addresses = ds.find_tag(tag.tag)
-                        if not addresses:
-                            raise Exception
-                        for address in addresses:
-                            new_value = value_type(values_dict[file_path])
-                            old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
-                            history.append([keyword, old_value, new_value])
-
-                except Exception as e:
-                    err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
-                    value = value_str if value_str else '[empty value]'
-                    modality = ds.dcm.Modality if hasattr(ds.dcm, 'Modality') else 'Unknown'
-                    error_log.append("Directory: %s\nFile: %s\nModality: %s\n\t"
-                                     "Attempt to edit %s to new value: %s\n\t%s\n" %
-                                     (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
-
-        return '\n'.join(error_log), history
 
     def set_output_paths(self, check_only=False):
         """
