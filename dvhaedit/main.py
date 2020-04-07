@@ -21,8 +21,9 @@ from pydicom.datadict import keyword_dict
 import webbrowser
 from dvhaedit._version import __version__
 from dvhaedit.data_table import DataTable
-from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About, ParsingProgressFrame,\
-    SavingProgressFrame, DynamicValueHelp, AdvancedSettings, RefSyncProgressFrame, ValueGenProgressFrame,\
+from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About, DynamicValueHelp,\
+    AdvancedSettings
+from dvhaedit.threads import ParsingProgressFrame, SavingProgressFrame, RefSyncProgressFrame, ValueGenProgressFrame,\
     ApplyEditsProgressFrame
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
@@ -203,11 +204,6 @@ class MainFrame(wx.Frame):
         pub.subscribe(self.update_dicom_edits, 'update_dicom_edits')
         pub.subscribe(self.do_save_dicom, 'do_save_dicom')
 
-    def on_parse_complete(self):
-        self.update_combobox_files()
-        self.update_init_value()
-        self.update_modality()
-
     def __do_layout(self):
         """Create GUI layout"""
         # Create GUI sizers
@@ -347,6 +343,10 @@ class MainFrame(wx.Frame):
 
     #################################################################################
     # Button Event tickers
+    # Binding occurs abstractly with a for loop, all buttons automatically bind to
+    # a function of its dict key prepended with on_
+    # For example, the Add button is self.button['add'], clicking it will activate
+    # self.on_add
     #################################################################################
     def on_in_browse(self, *evt):
         self.on_browse(self.input['in_dir'])
@@ -359,7 +359,7 @@ class MainFrame(wx.Frame):
 
     def on_browse(self, obj):
         """
-        Open a wx.DirDialog and select a new directory the provided obj
+        General function for in and out browse events
         :param obj: either in_dir or out_dir TextCtrl objects
         :type obj: wx.TextCtrl
         """
@@ -408,17 +408,19 @@ class MainFrame(wx.Frame):
         self.update_save_template_enable()
         self.update_save_dicom_enable()
 
-    def on_link(self, *evt):
-        self.selected_data_set.find_tag(self.tag.tag)
-
     def on_search(self, *evt):
         TagSearchDialog(self)
 
-    def on_value_help(self, *evt):
+    def on_advanced(self, *evt):
+        AdvancedSettings(self.current_options)
+        self.update_preview()
+
+    @staticmethod
+    def on_value_help(*evt):
         DynamicValueHelp()
 
     def on_delete(self, *evt):
-        """Delecte the selected tag edits"""
+        """Delete the selected tag edits"""
         for index in self.selected_indices[::-1]:
             self.data_table.delete_row(index)
         self.update_delete_enable()
@@ -434,21 +436,6 @@ class MainFrame(wx.Frame):
         """Deselect all tag edits"""
         self.data_table.apply_selection_to_all(False)
         self.button['delete'].Disable()
-
-    def on_selection(self, *evt):
-        self.update_delete_enable()
-        selected_data = self.data_table.selected_row_data
-        if selected_data:
-            tag = selected_data[0][1][1:-1].split(',')
-            group = tag[0].strip()
-            element = tag[1].strip()
-            self.input['tag_group'].SetValue(group)
-            self.input['tag_element'].SetValue(element)
-            self.input['value_type'].SetValue(selected_data[0][4])
-            self.update_keyword()
-            self.update_init_value()
-            self.update_preview()
-            self.current_options = deepcopy(self.all_options[selected_data[0][0]])
 
     def on_save_template(self, *evt):
         """Save the current tag edits to a pickle file"""
@@ -484,55 +471,26 @@ class MainFrame(wx.Frame):
         # calls do_save_dicom when done
         self.calculate_value_generators()
 
-    def apply_edits(self):
-        all_row_data = [self.get_table_row_data(row) for row in range(self.data_table.row_count)]
-        ApplyEditsProgressFrame(self.ds, self.values_dicts, all_row_data)
-
-    def update_dicom_edits(self, msg):
-        self.history = msg['data']['history']
-        self.error_log = msg['data']['error_log']
-        self.ds = msg['data']['ds']
-
-    def do_save_dicom(self):
-        if self.error_log:
-            ViewErrorLog(self.error_log)
-            with AskYesNo(self, "Ignore errors and write DICOM files anyway?") as dlg:
-                if dlg.ShowModal() == wx.ID_NO:
-                    return
-
-        if self.set_output_paths(check_only=True):
-            msg = "You will overwrite files with this action. Continue?"
-            caption = "Are you sure?"
-            flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
-            with wx.MessageDialog(self, msg, caption, flags) as dlg:
-                if dlg.ShowModal() == wx.ID_NO:
-                    return
-        self.set_output_paths()
-
-        if self.update_referenced_tags.GetSelection() and self.a_referenced_tag_exists(self.history):
-            check_all_tags = True if self.update_referenced_tags.GetSelection() == 2 else False
-            RefSyncProgressFrame(self.history, self.ds.values(), check_all_tags)
-            # This will call SavingProgressFrame when done
-        else:
-            self.do_saving_progress_frame()
-
-    @staticmethod
-    def a_referenced_tag_exists(history):
-        return any(["Referenced%s" % row[0] in list(keyword_dict) for row in history])
-
-    def do_saving_progress_frame(self):
-        SavingProgressFrame(self.ds.values())
-
-    def on_save_complete(self):
-        # If in and out directories are the same, need to update file list and datasets with new files
-        if self.save_history.GetValue():
-            self.save_history_to_file()
-
-        self.get_files()
-        wx.CallAfter(self.refresh_ds)
-
     def on_quit(self, *evt):
         self.Close()
+
+    #################################################################################
+    # ListCtrl (Table) Event tickers
+    #################################################################################
+    def on_selection(self, *evt):
+        self.update_delete_enable()
+        selected_data = self.data_table.selected_row_data
+        if selected_data:
+            tag = selected_data[0][1][1:-1].split(',')
+            group = tag[0].strip()
+            element = tag[1].strip()
+            self.input['tag_group'].SetValue(group)
+            self.input['tag_element'].SetValue(element)
+            self.input['value_type'].SetValue(selected_data[0][4])
+            self.update_keyword()
+            self.update_init_value()
+            self.update_preview()
+            self.current_options = deepcopy(self.all_options[selected_data[0][0]])
 
     #################################################################################
     # Key Event tickers
@@ -798,36 +756,9 @@ class MainFrame(wx.Frame):
                                               search_sub_folders=self.search_sub_folders_last_status))
         return current_files != self.file_paths
 
-    def add_parsed_data(self, msg):
-        self.ds[msg['obj']] = msg['data']
-
-    def on_advanced(self, *evt):
-        AdvancedSettings(self.current_options)
-        self.update_preview()
-
-    #################################################################################
-    # Finally... run the DICOM editor and save DICOM files
-    #################################################################################
-    def calculate_value_generators(self):
-        """Apply the tag edits to every file in self.ds, return any errors"""
-        self.value_generators = []
-        for row in range(self.data_table.row_count):
-            row_data = self.get_table_row_data(row)
-            self.value_generators.append(ValueGenerator(row_data['value_str'],
-                                                        row_data['tag'].tag,
-                                                        row_data['options']))
-        wx.CallAfter(self.call_next_value_generator)
-
-    def call_next_value_generator(self):
-        if self.value_generators:
-            value_generator = self.value_generators.pop(0)
-            iteration = self.data_table.row_count - len(self.value_generators)
-            ValueGenProgressFrame(self.ds, value_generator, iteration, self.data_table.row_count)
-        else:
-            wx.CallAfter(self.apply_edits)
-
-    def add_value_dicts(self, msg):
-        self.values_dicts.append(msg['data'])
+    @staticmethod
+    def a_referenced_tag_exists(history):
+        return any(["Referenced%s" % row[0] in list(keyword_dict) for row in history])
 
     def get_table_row_data(self, row):
         row_data = self.data_table.get_row(row)
@@ -868,18 +799,101 @@ class MainFrame(wx.Frame):
         if check_only:
             return False
 
+    #################################################################################
+    # pub subscribe functions
+    #################################################################################
+    def add_parsed_data(self, msg):
+        self.ds[msg['obj']] = msg['data']
 
-    @staticmethod
-    def on_about(*evt):
-        About()
+    def on_parse_complete(self):
+        self.update_combobox_files()
+        self.update_init_value()
+        self.update_modality()
 
-    @staticmethod
-    def on_githubpage(evt):
-        webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor")
+    def add_value_dicts(self, msg):
+        self.values_dicts.append(msg['data'])
 
-    @staticmethod
-    def on_report_issue(evt):
-        webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor/issues")
+    def update_dicom_edits(self, msg):
+        self.history = msg['data']['history']
+        self.error_log = msg['data']['error_log']
+        self.ds = msg['data']['ds']
+
+    #################################################################################
+    # Finally... initialize and perform dicom edits and save DICOM files
+    #################################################################################
+
+    # ------------------------------------------------------------------------------
+    # Step 1: Calculate values (time consuming if dynamic value functions used)
+    # ------------------------------------------------------------------------------
+    def calculate_value_generators(self):
+        """Collect a list of Value Generator class objects"""
+        self.value_generators = []
+        for row in range(self.data_table.row_count):
+            row_data = self.get_table_row_data(row)
+            self.value_generators.append(ValueGenerator(row_data['value_str'],
+                                                        row_data['tag'].tag,
+                                                        row_data['options']))
+        wx.CallAfter(self.call_next_value_generator)
+
+    def call_next_value_generator(self):
+        """Call each Value Generator one at a time, call apply_edits when complete"""
+        if self.value_generators:
+            value_generator = self.value_generators.pop(0)
+            iteration = self.data_table.row_count - len(self.value_generators)
+            ValueGenProgressFrame(self.ds, value_generator, iteration, self.data_table.row_count)
+        else:
+            wx.CallAfter(self.apply_edits)
+
+    # ------------------------------------------------------------------------------
+    # Step 2: Perform tag editing
+    # ------------------------------------------------------------------------------
+    def apply_edits(self):
+        """Send table data to apply edits thread, edit DICOM tags"""
+        all_row_data = [self.get_table_row_data(row) for row in range(self.data_table.row_count)]
+        ApplyEditsProgressFrame(self.ds, self.values_dicts, all_row_data)
+
+    # ------------------------------------------------------------------------------
+    # Step 3: View error log, check for file over-writing, sync referenced tags, save DICOM to file
+    # ------------------------------------------------------------------------------
+    def do_save_dicom(self):
+        # If any errors detected, display in GUI and ask user if they'd like to continue
+        if self.error_log:
+            ViewErrorLog(self.error_log)
+            with AskYesNo(self, "Ignore errors and write DICOM files anyway?") as dlg:
+                if dlg.ShowModal() == wx.ID_NO:
+                    return
+
+        # set_output_paths(check_only=True) will return True if any file would be over-written
+        if self.set_output_paths(check_only=True):
+            msg = "You will overwrite files with this action. Continue?"
+            caption = "Are you sure?"
+            flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
+            with wx.MessageDialog(self, msg, caption, flags) as dlg:
+                if dlg.ShowModal() == wx.ID_NO:
+                    return
+        self.set_output_paths()
+
+        # Check for any referenced tags by sending edit history to each data set
+        if self.update_referenced_tags.GetSelection() and self.a_referenced_tag_exists(self.history):
+            check_all_tags = True if self.update_referenced_tags.GetSelection() == 2 else False
+            RefSyncProgressFrame(self.history, self.ds.values(), check_all_tags)
+            # This will call SavingProgressFrame when done
+        else:
+            self.do_saving_progress_frame()
+
+    def do_saving_progress_frame(self):
+        SavingProgressFrame(self.ds.values())
+
+    # ------------------------------------------------------------------------------
+    # Step 4: Save history, if requested, reparse original data since it has been edited directly
+    # ------------------------------------------------------------------------------
+    def on_save_complete(self):
+        # If in and out directories are the same, need to update file list and datasets with new files
+        if self.save_history.GetValue():
+            self.save_history_to_file()
+
+        self.get_files()
+        wx.CallAfter(self.refresh_ds)
 
     def save_history_to_file(self):
         save_file_name = "DVHA_DICOM_Editor_history_%s.csv" % \
@@ -892,6 +906,21 @@ class MainFrame(wx.Frame):
                 lines.append('"%s",%s' % (file_path, row))
         with open(save_file_path, 'w') as doc:
             doc.write('\n'.join(lines))
+
+    #################################################################################
+    # Help menu events
+    #################################################################################
+    @staticmethod
+    def on_about(*evt):
+        About()
+
+    @staticmethod
+    def on_githubpage(evt):
+        webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor")
+
+    @staticmethod
+    def on_report_issue(evt):
+        webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor/issues")
 
 
 class MainApp(wx.App):
