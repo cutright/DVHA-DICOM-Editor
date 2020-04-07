@@ -4,7 +4,7 @@
 # setup.py
 
 from setuptools import setup, find_packages
-from dvhaedit.main import VERSION
+from dvhaedit._version import __version__
 
 
 with open('requirements.txt', 'r') as doc:
@@ -32,7 +32,7 @@ setup(
     include_package_data=True,
     python_requires='>3.5',
     packages=find_packages(),
-    version=VERSION,
+    version=__version__,
     description='Simple DICOM tag editor built with wxPython and pydicom',
     maintainer="Dan Cutright",
     maintainer_email="dan.cutright@gmail.com",

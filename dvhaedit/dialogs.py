@@ -20,6 +20,7 @@ from threading import Thread
 from time import sleep
 from pydicom.datadict import keyword_dict
 from pydicom.uid import RE_VALID_UID_PREFIX
+from dvhaedit._version import __version__
 from dvhaedit.data_table import DataTable
 from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
 from dvhaedit.dynamic_value import HELP_TEXT
@@ -255,11 +256,11 @@ class TextViewer(wx.Dialog):
 
 class About(TextViewer):
     """Simple dialog to display the LICENSE file and a brief text header in a scrollable window"""
-    def __init__(self, version):
+    def __init__(self):
 
         with open(LICENSE_PATH, 'r', encoding="utf8") as license_file:
             license_text = ''.join([line for line in license_file])
-        license_text = "DVHA DICOM Editor v%s\nedit.dvhanalytics.com\n\n%s" % (version, license_text)
+        license_text = "DVHA DICOM Editor v%s\nedit.dvhanalytics.com\n\n%s" % (__version__, license_text)
 
         TextViewer.__init__(self, license_text, title='About DVHA DICOM Editor', min_size=(700, 500))
 

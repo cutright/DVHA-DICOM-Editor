@@ -12,14 +12,16 @@ The main file for DVHA DICOM Editor
 
 import wx
 from copy import deepcopy
+from datetime import datetime
 from os import sep
 from os.path import isdir, isfile, basename, join, dirname, normpath, splitext, relpath
 from pathlib import Path
 from pubsub import pub
 from pydicom.datadict import keyword_dict
 import webbrowser
+from dvhaedit._version import __version__
 from dvhaedit.data_table import DataTable
-from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About,ParsingProgressFrame,\
+from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About, ParsingProgressFrame,\
     SavingProgressFrame, DynamicValueHelp, AdvancedSettings, RefSyncProgressFrame, ValueGenProgressFrame,\
     ApplyEditsProgressFrame
 from dvhaedit.dicom_editor import Tag
@@ -27,9 +29,6 @@ from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
     is_mac, save_object_to_file, load_object_from_file, set_frame_icon
-
-
-VERSION = '0.5dev'
 
 
 class MainFrame(wx.Frame):
@@ -77,6 +76,7 @@ class MainFrame(wx.Frame):
         self.search_sub_folders_last_status = False
 
         self.retain_rel_dir = wx.CheckBox(self, wx.ID_ANY, "Retain relative directory structure")
+        self.save_history = wx.CheckBox(self, wx.ID_ANY, "Save edit log")
 
         self.referenced_tag_choices = ['Only Edit Tags Defined in Table',
                                        'Update "Referenced" Tags',
@@ -100,11 +100,13 @@ class MainFrame(wx.Frame):
         """Set initial properties of widgets"""
         set_msw_background_color(self)
 
-        for checkbox in [self.search_sub_folders, self.retain_rel_dir]:
+        for checkbox in [self.search_sub_folders, self.retain_rel_dir, self.save_history]:
             checkbox.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, 0, ""))
         self.retain_rel_dir.SetToolTip("If unchecked, all new files will be placed in the output directory. "
                                        "Otherwise, the same relative directory structure will be used.")
         self.retain_rel_dir.SetValue(True)
+        self.save_history.SetToolTip("Save a text file of tag edits to the output directory.")
+        self.save_history.SetValue(False)
 
         self.button['in_browse'].SetLabel(u"Browse…")
         self.button['out_browse'].SetLabel(u"Browse…")
@@ -223,6 +225,7 @@ class MainFrame(wx.Frame):
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Output Directory"), wx.HORIZONTAL)
         sizer_output_dir_inner_wrapper = wx.BoxSizer(wx.VERTICAL)
+        sizer_output_checkboxes = wx.BoxSizer(wx.HORIZONTAL)
         sizer_output_dir = wx.BoxSizer(wx.VERTICAL)
         sizer_output_dir_prepend = wx.BoxSizer(wx.HORIZONTAL)
         sizer_app_buttons = wx.BoxSizer(wx.HORIZONTAL)
@@ -270,7 +273,9 @@ class MainFrame(wx.Frame):
 
         # Output Directory Browser
         sizer_output_dir.Add(self.input['out_dir'], 1, wx.EXPAND | wx.ALL, 5)
-        sizer_output_dir.Add(self.retain_rel_dir, 0, wx.LEFT | wx.BOTTOM, 5)
+        sizer_output_checkboxes.Add(self.retain_rel_dir, 0, wx.RIGHT, 15)
+        sizer_output_checkboxes.Add(self.save_history, 0, 0, 5)
+        sizer_output_dir.Add(sizer_output_checkboxes, 0, wx.LEFT | wx.BOTTOM, 5)
         sizer_output_dir_inner_wrapper.Add(sizer_output_dir, 0, wx.ALL | wx.EXPAND, 5)
         sizer_output_dir_prepend.Add(self.label['prepend_file_name'], 0, wx.TOP | wx.LEFT | wx.RIGHT, 5)
         sizer_output_dir_prepend.Add(self.input['prepend_file_name'], 1, wx.EXPAND | wx.RIGHT, 5)
@@ -520,9 +525,11 @@ class MainFrame(wx.Frame):
 
     def on_save_complete(self):
         # If in and out directories are the same, need to update file list and datasets with new files
-        if self.input['in_dir'].GetValue() == self.input['out_dir'].GetValue():
-            self.get_files()
-            wx.CallAfter(self.refresh_ds)
+        if self.save_history.GetValue():
+            self.save_history_to_file()
+
+        self.get_files()
+        wx.CallAfter(self.refresh_ds)
 
     def on_quit(self, *evt):
         self.Close()
@@ -864,7 +871,7 @@ class MainFrame(wx.Frame):
 
     @staticmethod
     def on_about(*evt):
-        About(VERSION)
+        About()
 
     @staticmethod
     def on_githubpage(evt):
@@ -874,11 +881,23 @@ class MainFrame(wx.Frame):
     def on_report_issue(evt):
         webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor/issues")
 
+    def save_history_to_file(self):
+        save_file_name = "DVHA_DICOM_Editor_history_%s.csv" % \
+                         str(datetime.now()).split('.')[0].replace(':', '-').replace(' ', '-')
+        save_file_path = join(self.input['out_dir'].GetValue(), save_file_name)
+        column_row = 'File Path,Edit Order,Tag,Old Value,New Value'
+        lines = [column_row]
+        for file_path, ds in self.ds.items():
+            for row in ds.history:
+                lines.append('"%s",%s' % (file_path, row))
+        with open(save_file_path, 'w') as doc:
+            doc.write('\n'.join(lines))
+
 
 class MainApp(wx.App):
     def OnInit(self):
         self.SetAppName('DVHA DICOM Editor')
-        self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor v%s" % VERSION)
+        self.frame = MainFrame(None, wx.ID_ANY, "DVHA DICOM Editor v%s" % __version__)
         set_frame_icon(self.frame)
         self.SetTopWindow(self.frame)
         self.frame.Show()

@@ -32,6 +32,7 @@ class DICOMEditor:
             self.dcm = dcm
 
         self.init_tag_values = {}
+        self.history = []
         self.tree = {}
 
         self.output_path = None
@@ -48,11 +49,33 @@ class DICOMEditor:
             old_value = self.dcm[tag].value
             self.init_tag_values[tag] = old_value
             self.dcm[tag].value = new_value
+            address = [tag, old_value]
         else:
             element = self.get_element(tag, address)
             old_value = element.value
             element.value = new_value
+
+        self.append_history(new_value, address)
+
         return old_value, self.get_tag_value(tag, address)
+
+    def append_history(self, new_value, address):
+        line = ','.join([str(len(self.history)+1),
+                         self.address_to_string(address),
+                         str(new_value)])
+        self.history.append(line)
+
+    @staticmethod
+    def address_to_string(address):
+        line = []
+        for item in address[:-1]:
+            tag, index = item[0], item[1]
+            keyword = DicomDictionary[tag][4]
+            line.append("%s[%s]" % (keyword, index))
+        tag, value = tuple(address[-1])
+        keyword = DicomDictionary[tag][4]
+        line.append("%s,%s" % (keyword, value))
+        return '.'.join(line)
 
     def sync_referenced_tag(self, keyword, old_value, new_value, check_all_tags=False):
         """

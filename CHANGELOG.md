@@ -4,6 +4,8 @@ v0.5 (TBD)
 --------------------
  - Fixed bug where a 2nd input directory browse could cause crash
  - Ensure UID's and random numbers are unique per session
+ - Better minimum window size management
+ - Optionally save edit history to text file
 
 
 v0.4 (2020.04.05)
