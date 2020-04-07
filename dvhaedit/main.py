@@ -76,6 +76,8 @@ class MainFrame(wx.Frame):
         self.search_sub_folders = wx.CheckBox(self, wx.ID_ANY, "Search Sub-Folders")
         self.search_sub_folders_last_status = False
 
+        self.force_open = wx.CheckBox(self, wx.ID_ANY, "Force DICOM Read")
+
         self.retain_rel_dir = wx.CheckBox(self, wx.ID_ANY, "Retain relative directory structure")
         self.save_history = wx.CheckBox(self, wx.ID_ANY, "Save edit log")
 
@@ -86,6 +88,7 @@ class MainFrame(wx.Frame):
                                                   choices=self.referenced_tag_choices)
 
         self.file_paths = []
+        self.ignored_file_paths = []
         self.update_files_found()
         self.refresh_needed = False
 
@@ -101,7 +104,7 @@ class MainFrame(wx.Frame):
         """Set initial properties of widgets"""
         set_msw_background_color(self)
 
-        for checkbox in [self.search_sub_folders, self.retain_rel_dir, self.save_history]:
+        for checkbox in [self.search_sub_folders, self.retain_rel_dir, self.save_history, self.force_open]:
             checkbox.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, 0, ""))
         self.retain_rel_dir.SetToolTip("If unchecked, all new files will be placed in the output directory. "
                                        "Otherwise, the same relative directory structure will be used.")
@@ -232,6 +235,7 @@ class MainFrame(wx.Frame):
         sizer_input_dir_wrapper.Add(sizer_input_dir, 0, wx.ALL | wx.EXPAND, 5)
         row_sizer = wx.BoxSizer(wx.HORIZONTAL)
         row_sizer.Add(self.label['files_found'], 1, wx.EXPAND, 0)
+        row_sizer.Add(self.force_open, 0, wx.ALIGN_RIGHT | wx.RIGHT, 15)
         row_sizer.Add(self.search_sub_folders, 0, wx.ALIGN_RIGHT, 0)
         sizer_input_file.Add(row_sizer, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         sizer_input_file.Add(self.label['selected_file'], 0, wx.LEFT | wx.TOP, 5)
@@ -700,7 +704,7 @@ class MainFrame(wx.Frame):
         self.get_files()
         self.ds = {}
         self.values_dicts = []
-        ParsingProgressFrame(self.file_paths)
+        ParsingProgressFrame(self.file_paths, self.force_open.GetValue())
 
     #################################################################################
     # Utilities
@@ -752,9 +756,10 @@ class MainFrame(wx.Frame):
 
     @property
     def dir_contents_have_changed(self):
-        current_files = sorted(get_file_paths(self.directory['in'],
-                                              search_sub_folders=self.search_sub_folders_last_status))
-        return current_files != self.file_paths
+        current_files = set(get_file_paths(self.directory['in'],
+                                           search_sub_folders=self.search_sub_folders_last_status))
+        all_files = set(self.file_paths + self.ignored_file_paths)
+        return current_files != all_files
 
     @staticmethod
     def a_referenced_tag_exists(history):
@@ -803,9 +808,17 @@ class MainFrame(wx.Frame):
     # pub subscribe functions
     #################################################################################
     def add_parsed_data(self, msg):
-        self.ds[msg['obj']] = msg['data']
+        self.ds[msg['obj']['dcm']] = msg['data']
 
     def on_parse_complete(self):
+
+        # remove files that could not be parsed
+        bad_files = [(i, f) for i, f in enumerate(self.file_paths) if self.ds[f].dcm is None]
+        for (i, f) in bad_files[::-1]:
+            self.ignored_file_paths.append(self.file_paths.pop(i))
+            self.ds.pop(f)
+        self.update_files_found()
+
         self.update_combobox_files()
         self.update_init_value()
         self.update_modality()
@@ -892,6 +905,12 @@ class MainFrame(wx.Frame):
         if self.save_history.GetValue():
             self.save_history_to_file()
 
+        msg = "Re-parse input directory? This is recommended if you wish to apply new edits."
+        caption = "Are you sure?"
+        flags = wx.ICON_WARNING | wx.YES | wx.NO
+        with wx.MessageDialog(self, msg, caption, flags) as dlg:
+            if dlg.ShowModal() == wx.ID_NO:
+                return
         self.get_files()
         wx.CallAfter(self.refresh_ds)
 

@@ -6,6 +6,9 @@ v0.5 (TBD)
  - Ensure UIDs and random numbers generated in a session are unique from each other
  - Better minimum window size management
  - Optionally save edit history to csv file
+ - Let user set "force" kwarg in pydicom.read_file()
+ - Ignore files that are missing fhe following keyword properties:  
+    'StudyDate', 'StudyTime', 'PatientID', 'StudyID', 'SeriesNumber'
 
 
 v0.4 (2020.04.05)

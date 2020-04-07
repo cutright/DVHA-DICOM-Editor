@@ -14,6 +14,7 @@ import wx
 from os import walk, listdir
 from os.path import isfile, isdir, splitext, join
 import pickle
+from pydicom._uid_dict import UID_dictionary
 import re
 from dvhaedit.paths import SCRIPT_DIR, WIN_FRAME_ICON
 
@@ -223,3 +224,14 @@ def update_dynamic_value_help_txt(first_line_value='Dynamic Value Setting'):
 def set_frame_icon(frame):
     if not is_mac():
         frame.SetIcon(wx.Icon(WIN_FRAME_ICON))
+
+
+def get_uid_prefixes():
+    prefix_dict = {}
+    for prefix, data in UID_dictionary.items():
+        if data[0]:
+            key = "%s - %s" % (data[0], data[1])
+            if data[3].lower() == 'retired':
+                key = key + ' (Retired)'
+            prefix_dict[key] = prefix
+    return prefix_dict

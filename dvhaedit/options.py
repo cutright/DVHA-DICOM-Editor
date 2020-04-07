@@ -10,7 +10,7 @@ Classes containing user preferences
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
-from dvhaedit.dicom_editor import get_uid_prefixes
+from dvhaedit.utilities import get_uid_prefixes
 
 
 class Options:

@@ -19,11 +19,12 @@ from time import sleep
 
 class ProgressFrame(wx.Dialog):
     """Create a window to display progress and begin provided worker"""
-    def __init__(self, obj_list, action, close_msg, action_msg=None, action_gui_phrase='Processing', title='Progress'):
+    def __init__(self, obj_list, action, close_msg, action_msg=None, action_gui_phrase='Processing', title='Progress',
+                 kwargs=False):
         wx.Dialog.__init__(self, None)
 
         self.close_msg = close_msg
-        self.worker_args = [obj_list, action, action_msg, action_gui_phrase, title]
+        self.worker_args = [obj_list, action, action_msg, action_gui_phrase, title, kwargs]
         self.action_gui_phrase = action_gui_phrase
 
         self.gauge = wx.Gauge(self, wx.ID_ANY, 100)
@@ -87,7 +88,7 @@ class ProgressFrame(wx.Dialog):
 
 class ProgressFrameWorker(Thread):
     """Create a thread, perform action on each item in obj_list"""
-    def __init__(self, obj_list, action, action_msg, action_gui_phrase, title):
+    def __init__(self, obj_list, action, action_msg, action_gui_phrase, title, kwargs):
         Thread.__init__(self)
 
         pub.sendMessage("progress_set_title", msg=title)
@@ -97,6 +98,7 @@ class ProgressFrameWorker(Thread):
         self.action = action
         self.action_msg = action_msg
         self.action_gui_phrase = action_gui_phrase
+        self.kwargs = kwargs
 
         self.start()
 
@@ -130,7 +132,10 @@ class ProgressFrameWorker(Thread):
     def do_action(self, obj, msg):
         pub.sendMessage("progress_update", msg=msg)
 
-        result = self.action(obj)
+        if self.kwargs:
+            result = self.action(**obj)
+        else:
+            result = self.action(obj)
         if self.action_msg is not None:
             msg = {'obj': obj, 'data': result}
             pub.sendMessage(self.action_msg, msg=msg)
