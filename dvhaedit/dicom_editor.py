@@ -156,7 +156,7 @@ class DICOMEditor:
         # Example:
         #   BeamMeterSet (300A, 0086) for RT PLan is accessed via FractionGroupSequence -> ReferencedBeamSequence
         #   Therefore, each row in addresses will be:
-        #     [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index], [<BeamMeterSet tag>, None]]
+        #     [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index], [<BeamMeterSet tag>, value]]
         # Addresses store the int representation of tag
         #
         # To find all tags with a specified VR, set vr and set tag to None

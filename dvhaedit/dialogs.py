@@ -24,7 +24,7 @@ from dvhaedit.data_table import DataTable
 from dvhaedit.dicom_editor import TagSearch, DICOMEditor, save_dicom
 from dvhaedit.dynamic_value import HELP_TEXT
 from dvhaedit.paths import LICENSE_PATH
-from dvhaedit.utilities import save_csv_to_file, get_window_size
+from dvhaedit.utilities import save_csv_to_file
 
 
 class ErrorDialog:
@@ -47,7 +47,7 @@ class AskYesNo(wx.MessageDialog):
     """Simple Yes/No MessageDialog"""
 
     def __init__(self, parent, msg, caption="Are you sure?",
-                 flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT, style=wx.CENTRE):
+                 flags=wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT):
         wx.MessageDialog.__init__(self, parent, msg, caption, flags)
 
 
@@ -97,7 +97,8 @@ class ViewErrorLog(wx.Dialog):
         sizer_wrapper.Add(sizer_buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
 
         self.SetSizer(sizer_wrapper)
-        self.SetSize(get_window_size(0.4, 0.4))
+        self.SetMinSize((700, 600))
+        self.Fit()
         self.Center()
 
     def run(self):
@@ -173,7 +174,8 @@ class TagSearchDialog(wx.Dialog):
         sizer_wrapper.Add(sizer_main, 1, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(sizer_wrapper)
-        self.SetSize(get_window_size(0.4, 0.4))
+        self.SetMinSize((700, 400))
+        self.Fit()
         self.Center()
 
     def run(self):
@@ -217,10 +219,10 @@ class TagSearchDialog(wx.Dialog):
 
 class TextViewer(wx.Dialog):
     """Simple dialog to display the LICENSE file and a brief text header in a scrollable window"""
-    def __init__(self, text, title, width=0.3, height=0.6):
+    def __init__(self, text, title, min_size):
         wx.Dialog.__init__(self, None, title=title)
 
-        self.size = get_window_size(width, height)
+        self.SetMinSize(min_size)
 
         self.scrolled_window = wx.ScrolledWindow(self, wx.ID_ANY)
         self.text = wx.StaticText(self.scrolled_window, wx.ID_ANY, text)
@@ -243,7 +245,7 @@ class TextViewer(wx.Dialog):
         sizer_wrapper.Add(self.scrolled_window, 1, wx.EXPAND, 0)
 
         self.SetSizer(sizer_wrapper)
-        self.SetSize(self.size)
+        self.Fit()
         self.Center()
 
     def run(self):
@@ -259,12 +261,12 @@ class About(TextViewer):
             license_text = ''.join([line for line in license_file])
         license_text = "DVHA DICOM Editor v%s\nedit.dvhanalytics.com\n\n%s" % (version, license_text)
 
-        TextViewer.__init__(self, license_text, title='About DVHA DICOM Editor')
+        TextViewer.__init__(self, license_text, title='About DVHA DICOM Editor', min_size=(700, 500))
 
 
 class DynamicValueHelp(TextViewer):
     def __init__(self):
-        TextViewer.__init__(self, HELP_TEXT, title='Dynamic Values', width=0.4)
+        TextViewer.__init__(self, HELP_TEXT, title='Dynamic Values', min_size=(672, 420))
 
 
 class ProgressFrame(wx.Dialog):
@@ -291,8 +293,7 @@ class ProgressFrame(wx.Dialog):
         ProgressFrameWorker(*self.worker_args)
 
     def __set_properties(self):
-        width, _ = get_window_size(0.4, 1)
-        self.SetMinSize((width, 100))
+        self.SetMinSize((672, 100))
 
     def __do_subscribe(self):
         pub.subscribe(self.update, "progress_update")
@@ -522,7 +523,7 @@ class AdvancedSettings(wx.Dialog):
 
         self.text_ctrl['rand_digits'].SetValue(str(self.options.rand_digits))
 
-        self.SetMinSize(get_window_size(0.4, 0.2))
+        self.SetMinSize((672, 210))
 
     def __do_bind(self):
         self.Bind(wx.EVT_TEXT, self.update_ok_enable, id=self.text_ctrl['rand_digits'].GetId())

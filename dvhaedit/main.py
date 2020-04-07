@@ -26,10 +26,10 @@ from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
 from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
-    get_window_size, is_mac, save_object_to_file, load_object_from_file, set_frame_icon
+    is_mac, save_object_to_file, load_object_from_file, set_frame_icon
 
 
-VERSION = '0.5'
+VERSION = '0.5dev'
 
 
 class MainFrame(wx.Frame):
@@ -287,9 +287,9 @@ class MainFrame(wx.Frame):
 
         sizer_wrapper.Add(sizer_main, 1, wx.EXPAND | wx.ALL, 5)
 
-        self.SetMinSize(get_window_size(0.35, 0.8))
         self.SetSizer(sizer_wrapper)
         self.Fit()
+        self.SetMinSize(self.GetSize())
         self.Center()
 
     #################################################################################
