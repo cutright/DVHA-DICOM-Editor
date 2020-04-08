@@ -50,7 +50,7 @@ Users can dynamically define new DICOM tag values based on file path or initial 
 * DICOM UID
     * `fuid[n]` and `vuid`: same as `fenum`/`venum`, except the enumeration value is replaced with a 
     DICOM compliant UID
-* Random Number (w/ `secret.randbelow`)
+* Random Number
     * `frand[n]` and `vrand`: same as DICOM UID functions except the value is a random integer
 
 ### Examples
