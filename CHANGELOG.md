@@ -2,6 +2,7 @@
 
 v0.5 (TBD)
 --------------------
+ - Major rewrite for value enumeration to properly accommodate tags within a sequence
  - Fixed bug where a 2nd input-directory browse could cause crash
  - Ensure UIDs and random numbers generated in a session are unique from each other
  - Better minimum window size management

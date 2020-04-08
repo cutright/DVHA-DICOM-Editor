@@ -29,7 +29,7 @@ class ValueGenerator:
         self.value = value
         self.tag = tag
         self.options = options
-        self.enum_instances = {'file': {}, 'value': {}}
+        self.enum_instances = {'file': {}, 'value': []}
         self.uids = {'file': {}, 'value': {}}
         self.rand = {'file': {}, 'value': {}}
         self.data_sets = {}
@@ -51,7 +51,7 @@ class ValueGenerator:
         :type file_path: str
         :param callback: optional function call through each loop through files, two parameters (iteration, count_total)
         :return: new tag values
-        :rtype: dict or str
+        :rtype: dict or list
         """
         if file_path is None:
             self.file_paths = sorted(list(data_sets))
@@ -66,11 +66,13 @@ class ValueGenerator:
         self.value_generator_callback(0, file_count)
 
         for f_counter, f in enumerate(self.file_paths):
-            new_value = self.value.split('*')
+            addresses = self.data_sets[f_counter].find_tag(self.tag)
+            new_values[f] = [self.value.split('*') for _ in range(len(addresses))]
             for i, call_str in enumerate(self.value.split('*')):
                 if i % 2 == 1:
-                    new_value[i] = str(self.get_value(call_str, f))
-            new_values[f] = ''.join(new_value)
+                    for index, address in enumerate(addresses):
+                        new_values[f][index][i] = str(self.get_value(call_str, f, index=index))
+            new_values[f] = [''.join(new_values) for new_values in new_values[f]]
 
             self.value_generator_callback(f_counter+1, file_count)
 
@@ -104,87 +106,105 @@ class ValueGenerator:
         """Collect all unique values for each of the enumerators"""
         self.send_progress_update(0)
         # Determine how many actions to perform, for progress indication
-        count = 0
-        self.enum_instances = {'file': {}, 'value': {}}
-        for key in list(self.enum_instances):
-            functions = [key[0] + f for f in ['enum', 'uid', 'rand']]
-            parameters = self.get_parameters(functions)
-            for _ in parameters:
-                if key == 'file':
-                    count += 1
-                else:
-                    count += len(self.data_sets)
 
+        self.enum_instances = {'file': {}, 'value': {}}
+        file_functions = ['fenum', 'fuid', 'frand']
+        parameters = set(self.get_parameters(file_functions))
+        count = len(parameters) + len(self.data_sets)
+
+        # File-based instances
         counter = 0.
-        for key, instances in self.enum_instances.items():
-            functions = [key[0] + f for f in ['enum', 'uid', 'rand']]
-            parameters = self.get_parameters(functions)
-            for index in parameters:
-                if key == 'file':
-                    enum = [self.file(index, f, True) for f in self.file_paths]
-                    self.send_progress_update(counter / count)
-                    counter += 1
-                else:
-                    enum = []
-                    for ds in self.data_sets:
-                        enum.extend(ds.get_all_tag_values(self.tag))
-                        enum = list(set(enum))
-                        self.send_progress_update(counter / count)
-                        counter += 1
-                instances[index] = sorted(list(set(enum)))
+        for index in parameters:
+            enum = [self.file(index, f, True) for f in self.file_paths]
+            self.enum_instances['file'][index] = sorted(list(set(enum)))
+            self.send_progress_update(0.95 * (counter / count))
+            counter += 1
+
+        # Value-based instances
+        enum = []
+        all_float = True
+        for ds in self.data_sets:
+            values = ds.get_all_tag_values(self.tag)
+            for i in range(len(values)):
+                try:
+                    values[i] = "%0.5f" % float(values[i])
+                except ValueError:
+                    all_float = False
+            enum.extend(values)
+            self.send_progress_update(0.95 * (counter / count))
+            counter += 1
+        enum = list(set(enum))
+        if all_float:
+            enum.sort(key=float)
+        self.enum_instances['value'] = enum
 
         # set uids
         prefix = self.options.prefix if hasattr(self.options, 'prefix') else None
         if prefix == '':
             prefix = None
+
         entropy_srcs = [self.options.entropy_source] if hasattr(self.options, 'entropy_source') else None
-        if entropy_srcs == '':
+        if entropy_srcs == ['']:
             entropy_srcs = None
+
+        self.send_progress_update(0.95, label='Generating UIDs...')
         self.uids = {'file': {}, 'value': {}}
-        uids = []
-        for key, instances in self.enum_instances.items():
-            for index in self.get_parameters(key[0] + 'uid'):
-                self.send_progress_update(0.95, label='Generating UIDs...')
-                self.uids[key][index] = {}
-                for i in self.enum_instances[key][index]:
-                    found = False
-                    uid = ''
-                    while not found:  # ensure random number is not used twice
-                        uid = generate_uid(prefix=prefix, entropy_srcs=entropy_srcs)
-                        if uid not in uids:
-                            found = True
-                        elif entropy_srcs:
-                            entropy_srcs = [entropy_srcs[0] + '0']
-                    uids.append(uid)
-                    self.uids[key][index][i] = uid
+        all_uids = []
+
+        # File-based uids
+        for index in self.get_parameters('fuid'):
+            self.uids['file'][index] = {}
+            for i in self.enum_instances['file'][index]:
+                found, uid = False, ''
+                while not found:  # ensure random number is not used twice
+                    uid = generate_uid(prefix=prefix, entropy_srcs=entropy_srcs)
+                    found = uid not in all_uids
+                    if not found and entropy_srcs is not None:  # increment entropy source
+                        entropy_srcs = [entropy_srcs[0] + '0']
+                all_uids.append(uid)
+                self.uids['file'][index][i] = uid
+
+        # Value-based uids
+        for i in self.enum_instances['value']:
+            found, uid = False, ''
+            while not found:  # ensure random number is not used twice
+                uid = generate_uid(prefix=prefix, entropy_srcs=entropy_srcs)
+                if uid not in all_uids:
+                    found = True
+                elif entropy_srcs:
+                    entropy_srcs = [entropy_srcs[0] + '0']
+            all_uids.append(uid)
+            self.uids['value'][i] = uid
 
         # set random numbers
+        self.send_progress_update(0.98, label='Generating random numbers...')
         digits = self.options.rand_digits if hasattr(self.options, 'rand_digits') else 5
         max_num = 10 ** digits
         self.rand = {'file': {}, 'value': {}}
-        self.send_progress_update(0.98, label='Generating random numbers...')
 
         # count the number of rand_numbers needed
-        count = 0
-        for key, instances in self.enum_instances.items():
-            for index in self.get_parameters(key[0] + 'rand'):
-                count += len(self.enum_instances[key][index])
+        count = len(self.enum_instances['file']) * len(self.get_parameters('frand')) + len(self.enum_instances['value'])
 
         while max_num < count:  # ensure enough digits are used, to avoid infinite while loop below
             max_num *= 10
         random_numbers = []
-        for key, instances in self.enum_instances.items():
-            for index in self.get_parameters(key[0] + 'rand'):
-                self.rand[key][index] = {}
-                for i in self.enum_instances[key][index]:
-                    found = False
-                    random_number = 0
-                    while not found:  # ensure random number is not used twice
-                        random_number = randbelow(max_num)
-                        if random_number not in random_numbers:
-                            found = True
-                    random_numbers.append(random_number)
-                    self.rand[key][index][i] = str(random_numbers[-1]).zfill(digits)
+        for index in self.get_parameters('frand'):
+            self.rand['file'][index] = {}
+            for i in self.enum_instances['file'][index]:
+                found, random_number = False, 0
+                while not found:  # ensure random number is not used twice
+                    random_number = randbelow(max_num)
+                    found = random_number not in random_numbers
+                random_numbers.append(random_number)
+                self.rand['file'][index][i] = str(random_number).zfill(digits)
+
+        for i in self.enum_instances['value']:
+            found, random_number = False, 0
+            while not found:  # ensure random number is not used twice
+                random_number = randbelow(max_num)
+                found = random_number not in random_numbers
+            random_numbers.append(random_number)
+            self.rand['value'][i] = str(random_number).zfill(digits)
 
     #################################################################################
     # Getters
@@ -198,9 +218,9 @@ class ValueGenerator:
                 parameters.append(param)
         return sorted(list(set(parameters)))
 
-    def get_value(self, call_str, file_path):
+    def get_value(self, call_str, file_path, index=None):
         """Parse the function call string, perform the function"""
-        func, param = self.split_call_str(call_str)
+        func, param = self.split_call_str(call_str, index)
         if func in list(self.func_map):
             return self.func_map[func](param, file_path)
         return ''
@@ -208,10 +228,10 @@ class ValueGenerator:
     #################################################################################
     # Utilities
     #################################################################################
-    def split_call_str(self, func_call_str):
+    def split_call_str(self, func_call_str, index=None):
         """Split the string into function and parameter"""
         if func_call_str in self.value_functions:
-            return func_call_str, None
+            return func_call_str, index
         f_split = func_call_str.split('[')
         func = f_split[0]
         param = f_split[1][:-1]  # remove last character, ]
@@ -234,7 +254,7 @@ class ValueGenerator:
     # The following function names, in this comment block, must match those found in self.functions,
     # and have two input parameters: index and file_path
 
-    def val(self, _, file_path):
+    def val(self, index, file_path):
         """Process a value enumeration (index included for abstract use)"""
         ds = self.data_sets[self.file_paths.index(file_path)]
         try:
@@ -242,7 +262,7 @@ class ValueGenerator:
         except KeyError:
             addresses = ds.find_tag(self.tag)
             if addresses:
-                return addresses[0][-1][1]
+                return addresses[index][-1][1]
             return None
 
     def fenum(self, index, file_path):
@@ -257,10 +277,14 @@ class ValueGenerator:
         except KeyError:
             addresses = ds.find_tag(self.tag)
             if addresses:
-                value = addresses[0][-1][1]
+                value = addresses[index][-1][1]
+                try:
+                    value = "%0.5f" % float(addresses[index][-1][1])
+                except ValueError:
+                    pass
             else:
                 return 'None'
-        return str(self.enum_instances['value'][index].index(value) + 1)
+        return str(self.enum_instances['value'].index(str(value)) + 1)
 
     def fuid(self, index, file_path):
         """Process file path based uid generator"""
@@ -292,10 +316,10 @@ class ValueGenerator:
         except KeyError:
             addresses = ds.find_tag(self.tag)
             if addresses:
-                value = addresses[0][-1][1]
+                value = addresses[index][-1][1]
             else:
                 return None
-        return lookup['value'][index][value]
+        return lookup['value'][str(value)]
 
 
 with open(DYNAMIC_VALUE_HELP, 'r') as doc:

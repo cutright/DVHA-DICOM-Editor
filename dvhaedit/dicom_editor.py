@@ -398,15 +398,15 @@ def apply_edits(values_dicts, all_row_data, data_sets):
             pub.sendMessage("progress_update", msg=msg)
             try:
                 if tag.tag in ds.dcm.keys():  # Tag exists in top-level of DICOM dataset
-                    new_value = value_type(values_dict[file_path])
+                    new_value = value_type(values_dict[file_path][0])
                     old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
                     history.append([keyword, old_value, new_value])
                 else:  # Search entire DICOM dataset for tag
                     addresses = ds.find_tag(tag.tag)
                     if not addresses:
                         raise Exception  # Tag could not be found
-                    for address in addresses:
-                        new_value = value_type(values_dict[file_path])
+                    for a, address in enumerate(addresses):
+                        new_value = value_type(values_dict[file_path][a])
                         old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
                         history.append([keyword, old_value, new_value])
 
