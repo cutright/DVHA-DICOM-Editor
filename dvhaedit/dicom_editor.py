@@ -45,6 +45,7 @@ class DICOMEditor:
         self.output_path = None
 
     def validate_ds(self):
+        """Check for required properties in the case of an InvalidDicomError"""
         required_keywords = ['StudyDate', 'StudyTime', 'PatientID', 'StudyID', 'SeriesNumber']
         if not all([hasattr(self.dcm, keyword) for keyword in required_keywords]):
             self.dcm = None

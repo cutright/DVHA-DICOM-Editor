@@ -15,9 +15,9 @@ from dvhaedit.dicom_editor import DICOMEditor, save_dicom, apply_edits, update_r
 from dvhaedit.threading import ProgressFrame
 
 
-#################################################################################
-# Simple threads with a single function performed on each item the provided list
-#################################################################################
+#############################################################################################
+# Simple threads with a single function performed on each item in the provided list
+#############################################################################################
 
 class ParsingProgressFrame(ProgressFrame):
     """Create a window to display DICOM file parsing progress and begin ParseWorker"""
@@ -36,13 +36,6 @@ class SavingProgressFrame(ProgressFrame):
                                title='Saving DICOM Data')
 
 
-#################################################################################
-# Modified threading implementation
-#################################################################################
-
-# ------------------------------------------------------------------------------
-# Referenced tag searching and updating
-# ------------------------------------------------------------------------------
 class RefSyncProgressFrame(ProgressFrame):
     """Create a window to display Referenced tag syncing progress and begin SaveWorker"""
     def __init__(self, history, data_sets, check_all_tags):
@@ -51,6 +44,10 @@ class RefSyncProgressFrame(ProgressFrame):
                                action_gui_phrase='Checking References for Tag:',
                                title='Checking for Referenced Tags')
 
+
+#############################################################################################
+# Modified threading implementation
+#############################################################################################
 
 # ------------------------------------------------------------------------------
 # Value Generator calls GUI progress updates and the provided list is only one item
@@ -67,7 +64,7 @@ class ValueGenProgressFrame(ProgressFrame):
 
 
 # ------------------------------------------------------------------------------
-# Modified to handle nested for loops in apply_edits
+# Modified to handle nested for-loops in apply_edits
 # ------------------------------------------------------------------------------
 class ApplyEditsProgressFrame(ProgressFrame):
     """Create a window to display value generation progress and begin SaveWorker"""
