@@ -110,7 +110,7 @@ class MainFrame(wx.Frame):
                                        "Otherwise, the same relative directory structure will be used.")
         self.retain_rel_dir.SetValue(True)
         self.save_history.SetToolTip("Save a text file of tag edits to the output directory.")
-        self.save_history.SetValue(False)
+        self.save_history.SetValue(True)
 
         self.button['in_browse'].SetLabel(u"Browse…")
         self.button['out_browse'].SetLabel(u"Browse…")
