@@ -1,5 +1,17 @@
 # Change log of DVHA DICOM Editor
 
+v0.5 (2020.04.09)
+--------------------
+ - Major ewrite for value enumeration to properly accommodate tags within a sequence
+ - Fixed bug where a 2nd input-directory browse could cause crash
+ - Ensure UIDs and random numbers generated in a session are unique from each other
+ - Better minimum window size management
+ - Optionally save edit history to csv file
+ - Let user set "force" kwarg in pydicom.read_file()
+ - Ignore files that are missing fhe following keyword properties:  
+    'StudyDate', 'StudyTime', 'PatientID', 'StudyID', 'SeriesNumber'
+
+
 v0.4 (2020.04.05)
 --------------------
  - Random number generator functions: `vrand` and `frand`

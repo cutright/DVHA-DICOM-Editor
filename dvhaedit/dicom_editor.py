@@ -10,10 +10,12 @@ Classes used to edit pydicom datasets
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
+from os.path import basename, dirname
+from pubsub import pub
 import pydicom
 from pydicom.datadict import keyword_dict, get_entry
 from pydicom._dicom_dict import DicomDictionary
-from pydicom._uid_dict import UID_dictionary
+from pydicom.errors import InvalidDicomError
 from dvhaedit.utilities import remove_non_alphanumeric, get_sorted_indices
 
 
@@ -22,19 +24,31 @@ keyword_dict.pop('')  # remove the empty keyword
 
 class DICOMEditor:
     """DICOM editing and value getter class"""
-    def __init__(self, dcm):
+    def __init__(self, dcm, force=False):
         """
         :param dcm: either a file_path to a DICOM file or a pydicom FileDataset
         """
         if type(dcm) is not pydicom.dataset.FileDataset:
-            self.dcm = pydicom.read_file(dcm, force=True)
+            try:
+                self.dcm = pydicom.read_file(dcm, force=force)
+            except InvalidDicomError:
+                self.dcm = None
+            self.validate_ds()
+
         else:
             self.dcm = dcm
 
         self.init_tag_values = {}
-        self.tree = {}
+        self.history = []
+        self.referenced_mode = False
 
         self.output_path = None
+
+    def validate_ds(self):
+        """Check for required properties in the case of an InvalidDicomError"""
+        required_keywords = ['StudyDate', 'StudyTime', 'PatientID', 'StudyID', 'SeriesNumber']
+        if not all([hasattr(self.dcm, keyword) for keyword in required_keywords]):
+            self.dcm = None
 
     def edit_tag(self, new_value, tag, address=None):
         """
@@ -48,11 +62,33 @@ class DICOMEditor:
             old_value = self.dcm[tag].value
             self.init_tag_values[tag] = old_value
             self.dcm[tag].value = new_value
+            address = [tag, old_value]
         else:
             element = self.get_element(tag, address)
             old_value = element.value
             element.value = new_value
+
+        self.append_history(new_value, address)
+
         return old_value, self.get_tag_value(tag, address)
+
+    def append_history(self, new_value, address):
+        line = ','.join([str(len(self.history)+1),
+                         self.address_to_string(address),
+                         str(new_value)])
+        self.history.append(line)
+
+    @staticmethod
+    def address_to_string(address):
+        line = []
+        for item in address[:-1]:
+            tag, index = item[0], item[1]
+            keyword = DicomDictionary[tag][4]
+            line.append("%s[%s]" % (keyword, index))
+        tag, value = tuple(address[-1])
+        keyword = DicomDictionary[tag][4]
+        line.append("%s,%s" % (keyword, value))
+        return '.'.join(line)
 
     def sync_referenced_tag(self, keyword, old_value, new_value, check_all_tags=False):
         """
@@ -156,41 +192,43 @@ class DICOMEditor:
         # Example:
         #   BeamMeterSet (300A, 0086) for RT PLan is accessed via FractionGroupSequence -> ReferencedBeamSequence
         #   Therefore, each row in addresses will be:
-        #     [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index], [<BeamMeterSet tag>, None]]
+        #     [[<FractionGroupSequence tag>, index], [<ReferencedBeamSequence tag>, index], [<BeamMeterSet tag>, value]]
         # Addresses store the int representation of tag
         #
         # To find all tags with a specified VR, set vr and set tag to None
 
         addresses = []
-        self._find_tag_instances(tag, self.dcm, addresses, vr=vr, referenced_mode=referenced_mode, value=value)
+        parent = []
+        vr = 'UI' if referenced_mode else vr
+        self.referenced_mode = referenced_mode
+        self._find_tag_instances(tag, self.dcm, addresses, parent, vr=vr, value=value)
         return addresses
 
-    def _find_tag_instances(self, tag, data_set, addresses, parent=None, vr=None, referenced_mode=False, value=None):
+    def _find_tag_instances(self, tag, data_set, addresses, parent, vr=None, value=None):
         """recursively walk through data_set sequences, collect addresses with the provided tag"""
-        if referenced_mode:
-            vr = 'UI'
-        if parent is None:
-            parent = []
         for elem in data_set:
-            if not referenced_mode or 'Referenced' in elem.keyword:
-                if hasattr(elem, 'VR') and elem.VR == 'SQ':
-                    for i, seq_item in enumerate(elem):
-                        self._find_tag_instances(tag, seq_item, addresses, parent + [[int(elem.tag), i]])
-                elif tag is None or \
-                        (hasattr(elem, 'tag') and (elem.tag == tag or
-                                                   (referenced_mode and 'Referenced' in elem.keyword))):
-                    if (vr is None or vr == elem.VR) and (value is None or (elem.VR == vr and elem.value == value)):
-                        v = elem.value if hasattr(elem, 'value') else None
-                        addresses.append(parent + [[int(elem.tag), v]])
+            if hasattr(elem, 'VR') and hasattr(elem, 'keyword') and hasattr(elem, 'tag'):
+                if not self.referenced_mode or 'Referenced' in elem.keyword:
+                    if elem.VR == 'SQ':
+                        for i, seq_item in enumerate(elem):
+                            new_parent = parent + [[int(elem.tag), i]]
+                            self._find_tag_instances(tag, seq_item, addresses, new_parent)
+                    elif tag is None or elem.tag == tag or \
+                            (self.referenced_mode and 'Referenced' in elem.keyword):
+                        if (vr is None or vr == elem.VR) and \
+                                (value is None or (elem.VR == vr and elem.value == value)):
+                            v = elem.value if hasattr(elem, 'value') else None
+                            address = parent + [[int(elem.tag), v]]
+                            addresses.append(address)
 
 
 class Tag:
     """Convert group and element strings into a keyword/tag for pydicom"""
     def __init__(self, group, element):
         """
-        :param group: first paramater in a DICOM tag
+        :param group: first parameter in a DICOM tag
         :type group: str
-        :param element: first paramater in a DICOM tag
+        :param element: second parameter in a DICOM tag
         :type element: str
         """
         self.group = self.process_string(group)
@@ -207,6 +245,7 @@ class Tag:
 
     @property
     def tag_as_int(self):
+        """Convert DICOM tag to its integer representation"""
         if self.has_x:
             return None
         string = "0x%s%s" % (self.group, self.element)
@@ -230,6 +269,9 @@ class Tag:
             string = string[2:]
         return remove_non_alphanumeric(string).zfill(4).upper()
 
+    #################################################################################
+    # DICOM property getters
+    #################################################################################
     @property
     def vr(self):
         return self.get_entry('VR')
@@ -251,6 +293,7 @@ class Tag:
         return self.get_entry('keyword')
 
     def get_entry(self, tag_property):
+        """General function for the getters in the code block"""
         index = ['VR', 'VM', 'name', 'is_retired', 'keyword'].index(tag_property)
         if not self.has_x and self.group and self.element:
             try:
@@ -269,45 +312,8 @@ class TagSearch:
     def __call__(self, search_str):
         return self.get_table_data(search_str)
 
-    def get_keyword_matches(self, partial_keyword):
-        if partial_keyword:
-            partial_keyword = remove_non_alphanumeric(partial_keyword).lower()
-            return [self.lower_case_map[key] for key in self.lower_case_map if partial_keyword in key]
-        return self.keywords
-
-    def get_matches(self, partial_keyword):
-        if partial_keyword:
-            partial_keyword = remove_non_alphanumeric(partial_keyword).lower()
-            return {tag: entry for tag, entry in DicomDictionary.items()
-                    if partial_keyword in entry[4].lower() or
-                    partial_keyword in remove_non_alphanumeric(str(self.int_to_tag(tag)))}
-        else:
-            return DicomDictionary
-
-    @staticmethod
-    def keyword_to_tag(keyword):
-        tag = str(hex(keyword_dict.get(keyword)))
-        group = tag[0:-4]
-        element = tag[-4:]
-        return Tag(group, element)
-
-    @staticmethod
-    def hex_to_tag(tag_as_hex):
-        tag = str(tag_as_hex).zfill(8)
-        group = tag[0:-4]
-        element = tag[-4:]
-        return Tag(group, element)
-
-    def int_to_tag(self, tag_as_int):
-        return self.hex_to_tag(str(hex(tag_as_int))[2:])
-
-    @staticmethod
-    def get_value_rep(tag_as_int):
-        if tag_as_int is not None:
-            return get_entry(tag_as_int)[0]
-        return 'Unknown'
-
     def get_table_data(self, search_str):
+        """Return data for the ListCtrl in the main application"""
         columns = ['Keyword', 'Tag', 'VR']
 
         data = [(en[4], self.int_to_tag(tg), en[0]) for tg, en in self.get_matches(search_str).items() if en[4]]
@@ -322,18 +328,104 @@ class TagSearch:
         data = {'Keyword': keywords, 'Tag': tags, 'VR': value_reps}
         return {'data': data, 'columns': columns}
 
+    def get_matches(self, search_str):
+        """
+        Get matching tags in a pydicom._dicom_dict.DicomDictionary format
+        :param search_str: a string for partial keyword of hex-tag match
+        :return: partial matches
+        :rtype: dict
+        """
+        if search_str:
+            search_str = remove_non_alphanumeric(search_str).lower()
+            return {tag: entry for tag, entry in DicomDictionary.items()
+                    if search_str in entry[4].lower() or  # keyword match
+                    search_str in remove_non_alphanumeric(str(self.int_to_tag(tag)))}  # hex tag match
+        else:
+            return DicomDictionary
+
+    @staticmethod
+    def keyword_to_tag(keyword):
+        """
+        Get a dvhaedit Tag from DICOM keyword
+        :param keyword: DICOM keyword
+        :type keyword: str
+        :return: dvhaedit Tag class object
+        :rtype: Tag
+        """
+        tag = str(hex(keyword_dict.get(keyword)))
+        group = tag[0:-4]
+        element = tag[-4:]
+        return Tag(group, element)
+
+    @staticmethod
+    def hex_to_tag(tag_as_hex):
+        """Convert a hex tag to Tag"""
+        tag = str(tag_as_hex).zfill(8)
+        group = tag[0:-4]
+        element = tag[-4:]
+        return Tag(group, element)
+
+    def int_to_tag(self, tag_as_int):
+        return self.hex_to_tag(str(hex(tag_as_int))[2:])
+
+    @staticmethod
+    def get_value_rep(tag_as_int):
+        """Get DICOM VR with an integer DICOM tag"""
+        if tag_as_int is not None:
+            return get_entry(tag_as_int)[0]
+        return 'Unknown'
+
 
 def save_dicom(data_set):
     """Helper function for the Save Worker/Thread"""
     data_set.save_to_file()
 
 
-def get_uid_prefixes():
-    prefix_dict = {}
-    for prefix, data in UID_dictionary.items():
-        if data[0]:
-            key = "%s - %s" % (data[0], data[1])
-            if data[3].lower() == 'retired':
-                key = key + ' (Retired)'
-            prefix_dict[key] = prefix
-    return prefix_dict
+def apply_edits(values_dicts, all_row_data, data_sets):
+    """Apply the tag edits to every file in self.ds, return any errors"""
+    error_log, history = [], []
+    for row in range(len(all_row_data)):
+
+        row_data = all_row_data[row]
+        tag = row_data['tag']
+        value_str = row_data['value_str']
+        keyword = row_data['keyword']
+        value_type = row_data['value_type']
+        values_dict = values_dicts[row]
+
+        for i, (file_path, ds) in enumerate(data_sets.items()):
+            label = "Editing %s for file %s of %s" % (keyword, i+1, len(data_sets))
+            msg = {'label': label, 'gauge': float(i) / len(data_sets)}
+            pub.sendMessage("progress_update", msg=msg)
+            try:
+                if tag.tag in ds.dcm.keys():  # Tag exists in top-level of DICOM dataset
+                    new_value = value_type(values_dict[file_path][0])
+                    old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
+                    history.append([keyword, old_value, new_value])
+                else:  # Search entire DICOM dataset for tag
+                    addresses = ds.find_tag(tag.tag)
+                    if not addresses:
+                        raise Exception  # Tag could not be found
+                    for a, address in enumerate(addresses):
+                        new_value = value_type(values_dict[file_path][a])
+                        old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
+                        history.append([keyword, old_value, new_value])
+
+            except Exception as e:
+                err_msg = 'KeyError: %s is not accessible' % tag if str(e).upper() == str(tag).upper() else e
+                value = value_str if value_str else '[empty value]'
+                modality = ds.dcm.Modality if hasattr(ds.dcm, 'Modality') else 'Unknown'
+                error_log.append("Directory: %s\nFile: %s\nModality: %s\n\t"
+                                 "Attempt to edit %s to new value: %s\n\t%s\n" %
+                                 (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
+
+    return {'error_log': '\n'.join(error_log),
+            'history': history,
+            'ds': data_sets}
+
+
+def update_referenced_tags(data_sets, check_all_tags, history_row):
+    keyword, old_value, new_value = tuple(history_row)
+    if "Referenced%s" % keyword in list(keyword_dict):
+        for ds in data_sets:
+            ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
