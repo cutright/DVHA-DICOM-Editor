@@ -323,6 +323,8 @@ class MainFrame(wx.Frame):
     def value(self):
         value = self.input['value'].GetValue()
         type_ = get_type(self.input['value_type'].GetValue())
+        if len(value) and value[0] == '[' and value[-1] == ']':
+            return value
         return type_(value)
 
     @property
