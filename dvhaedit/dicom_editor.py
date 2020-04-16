@@ -73,7 +73,13 @@ class DICOMEditor:
         return old_value, self.get_tag_value(tag, address)
 
     def append_history(self, new_value, address):
-        new_value_str = str(new_value)
+
+        if type(new_value) is list:
+            str_values = [str(v) for v in new_value]
+            new_value_str = "[%s]" % ', '.join(str_values)
+        else:
+            new_value_str = str(new_value)
+
         if ',' in new_value_str:
             new_value_str = "\"%s\"" % new_value_str
 

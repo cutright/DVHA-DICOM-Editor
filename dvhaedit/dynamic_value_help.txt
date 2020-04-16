@@ -45,3 +45,20 @@ Value Enumeration:
         *file[-2]*_*venum* used with StudyInstanceUID tag
                 ANON0001_1
                 ANON0001_1
+
+MultiValue Tags
+------------------------------------------------------------------------------
+Some DICOM tags point to multiple values (i.e., MultiValue pydicom class). As of 
+DVHA DICOM Editor v0.6, a new DICOM tag value can be interpreted as a list if it begins 
+with [, ends with ], and uses ,  (comma-space) as a separator (this is the same 
+format as python's str representation of a list). Each item of the list will be converted 
+to the type provided by the user in the "Value Type" drop-down. Do not add single of double 
+quotes to make an item a string.
+
+------------------------------------------------------------------------------
+EXAMPLE
+------------------------------------------------------------------------------
+The DICOM tag ImageOrientationPatient (0020, 0037) is a list of 6 integers. If you want 
+this orientation to be head first-supine (HFS), it's value should be set to [1, 0, 0, 0, 1, 0]. 
+The "Value Type" should be set to str since this tag's Value Representation (VR) is 
+DecimalString (DS). 
