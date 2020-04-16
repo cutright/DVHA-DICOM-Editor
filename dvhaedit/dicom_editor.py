@@ -73,9 +73,13 @@ class DICOMEditor:
         return old_value, self.get_tag_value(tag, address)
 
     def append_history(self, new_value, address):
+        new_value_str = str(new_value)
+        if ',' in new_value_str:
+            new_value_str = "\"%s\"" % new_value_str
+
         line = ','.join([str(len(self.history)+1),
                          self.address_to_string(address),
-                         str(new_value)])
+                         str(new_value_str)])
         self.history.append(line)
 
     @staticmethod
@@ -87,6 +91,11 @@ class DICOMEditor:
             line.append("%s[%s]" % (keyword, index))
         tag, value = tuple(address[-1])
         keyword = DicomDictionary[tag][4]
+
+        value_str = str(value)
+        if ',' in value_str:
+            value = "\"%s\"" % value_str
+
         line.append("%s,%s" % (keyword, value))
         return '.'.join(line)
 
@@ -123,7 +132,12 @@ class DICOMEditor:
         return self.get_element(tag, address).value
 
     def get_all_tag_values(self, tag):
-        return list(set([address[-1][1] for address in self.find_tag(tag)]))
+        all_tag_values = []
+        for address in self.find_tag(tag):
+            v = address[-1][1]
+            all_tag_values.append("%s(%s)" % (type(v), str(v)))
+
+        return list(set(all_tag_values))
 
     def get_element(self, tag, address=None):
         """
@@ -399,7 +413,10 @@ def apply_edits(values_dicts, all_row_data, data_sets):
             pub.sendMessage("progress_update", msg=msg)
             try:
                 if tag.tag in ds.dcm.keys():  # Tag exists in top-level of DICOM dataset
-                    new_value = value_type(values_dict[file_path][0])
+
+                    current_value = values_dict[file_path][0]
+                    new_value = process_value(current_value, value_type)  # converts to list and types, as appropriate
+
                     old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
                     history.append([keyword, old_value, new_value])
                 else:  # Search entire DICOM dataset for tag
@@ -407,7 +424,9 @@ def apply_edits(values_dicts, all_row_data, data_sets):
                     if not addresses:
                         raise Exception  # Tag could not be found
                     for a, address in enumerate(addresses):
-                        new_value = value_type(values_dict[file_path][a])
+                        current_value = values_dict[file_path][a]
+                        new_value = process_value(current_value, value_type)  # converts to list and types
+
                         old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
                         history.append([keyword, old_value, new_value])
 
@@ -429,3 +448,23 @@ def update_referenced_tags(data_sets, check_all_tags, history_row):
     if "Referenced%s" % keyword in list(keyword_dict):
         for ds in data_sets:
             ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
+
+
+def is_value_list(value):
+    return value[0] == '[' and value[-1] == ']'
+
+
+def value_to_list(value, value_type):
+    ans = []
+    for v in value[1:-1].split(', '):
+        if v[0] == "'" and v[-1] == "'":
+            ans.append(value_type(value[1:-1]))
+        else:
+            ans.append(value_type(v))
+    return ans
+
+
+def process_value(value, value_type):
+    if is_value_list(value):
+        return value_to_list(value, value_type)
+    return value_type(value)
