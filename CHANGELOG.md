@@ -1,5 +1,9 @@
 # Change log of DVHA DICOM Editor
 
+v0.7 (TBD)
+--------------------
+ - Remove explicit typing
+
 v0.6 (2020.04.16)
 --------------------
  - List comprehension for MultiValue tags (e.g., ImageOrientation)
