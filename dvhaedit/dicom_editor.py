@@ -170,14 +170,6 @@ class DICOMEditor:
         """
         return self.dcm[tag].keyword
 
-    def get_tag_type(self, tag):
-        """
-        Get the DICOM tag data type
-        :param tag: the DICOM tag of interest
-        :type tag: Tag
-        """
-        return str(type(self.dcm[tag].value)).split("'")[1]
-
     def save_to_file(self, file_path=None):
         """
         Save the dataset to a DICOM file with pydicom
@@ -410,7 +402,6 @@ def apply_edits(values_dicts, all_row_data, data_sets):
         tag = row_data['tag']
         value_str = row_data['value_str']
         keyword = row_data['keyword']
-        value_type = row_data['value_type']
         values_dict = values_dicts[row]
 
         for i, (file_path, ds) in enumerate(data_sets.items()):
@@ -421,7 +412,7 @@ def apply_edits(values_dicts, all_row_data, data_sets):
                 if tag.tag in ds.dcm.keys():  # Tag exists in top-level of DICOM dataset
 
                     current_value = values_dict[file_path][0]
-                    new_value = process_value(current_value, value_type)  # converts to list and types, as appropriate
+                    new_value = process_value(current_value)  # converts to list and types, as appropriate
 
                     old_value, _ = ds.edit_tag(new_value, tag=tag.tag)
                     history.append([keyword, old_value, new_value])
@@ -431,7 +422,7 @@ def apply_edits(values_dicts, all_row_data, data_sets):
                         raise Exception  # Tag could not be found
                     for a, address in enumerate(addresses):
                         current_value = values_dict[file_path][a]
-                        new_value = process_value(current_value, value_type)  # converts to list and types
+                        new_value = process_value(current_value)  # converts to list and types
 
                         old_value, _ = ds.edit_tag(new_value, tag=tag.tag, address=address)
                         history.append([keyword, old_value, new_value])
@@ -456,21 +447,17 @@ def update_referenced_tags(data_sets, check_all_tags, history_row):
             ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
 
 
-def is_value_list(value):
-    return value[0] == '[' and value[-1] == ']'
-
-
-def value_to_list(value, value_type):
+def value_to_list(value):
     ans = []
     for v in value[1:-1].split(', '):
         if v[0] == "'" and v[-1] == "'":
-            ans.append(value_type(value[1:-1]))
+            ans.append(value[1:-1])
         else:
-            ans.append(value_type(v))
+            ans.append(v)
     return ans
 
 
-def process_value(value, value_type):
-    if is_value_list(value):
-        return value_to_list(value, value_type)
-    return value_type(value)
+def process_value(value):
+    if value[0] == '[' and value[-1] == ']':
+        return value_to_list(value)
+    return value

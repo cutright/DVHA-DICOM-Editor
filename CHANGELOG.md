@@ -2,7 +2,7 @@
 
 v0.7 (TBD)
 --------------------
- - Remove explicit typing
+ - Remove explicit DICOM tag value typing, let pydicom handle it
 
 v0.6 (2020.04.16)
 --------------------

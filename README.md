@@ -16,9 +16,11 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
     * Randomly generated numbers
 
 <a href="https://pypi.org/project/dvha-edit/">
-        <img src="https://img.shields.io/pypi/v/dvha-edit.svg" /></a>
+        <img src="https://img.shields.io/pypi/v/dvha-edit.svg"
+             alt="PyPi Version" /></a>
 <a href="https://lgtm.com/projects/g/cutright/DVHA-DICOM-Editor/context:python">
-        <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality" /></a>
+        <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality"
+             alt="LGTM Python Code Quality" /></a>
 
 Installation
 ---------
@@ -84,12 +86,9 @@ MultiValue Tags
 Some DICOM tags point to multiple values (i.e., MultiValue pydicom class). As of 
 DVHA DICOM Editor v0.6, a new DICOM tag value can be interpreted as a list if it begins 
 with `[`, ends with `]`, and uses `, ` (comma-space) as a separator (this is the same 
-format as python's `str` representation of a list). Each item of the list will be converted 
-to the type provided by the user in the "Value Type" drop-down. Do not add single of double 
-quotes to make an item a string.
+format as python's `str` representation of a list). Do not add quotes to make an item a string. 
+All value typing is handled by pydicom.
 
 ### Example
 The DICOM tag `ImageOrientationPatient` (0020, 0037) is a list of 6 integers. If you want 
 this orientation to be head first-supine (HFS), it's value should be set to `[1, 0, 0, 0, 1, 0]`. 
-The "Value Type" should be set to str since this tag's Value Representation (VR) is 
-DecimalString (DS). 

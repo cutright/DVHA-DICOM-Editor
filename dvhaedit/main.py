@@ -28,7 +28,7 @@ from dvhaedit.threads import ParsingProgressFrame, SavingProgressFrame, RefSyncP
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
-from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_type, get_selected_listctrl_items,\
+from dvhaedit.utilities import set_msw_background_color, get_file_paths, get_selected_listctrl_items,\
     is_mac, save_object_to_file, load_object_from_file, set_frame_icon
 
 
@@ -53,7 +53,6 @@ class MainFrame(wx.Frame):
         self.input = {key: wx.TextCtrl(self, wx.ID_ANY, "") for key in keys}
         self.input['preview'] = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_READONLY)
         self.input['selected_file'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
-        self.input['value_type'] = wx.ComboBox(self, wx.ID_ANY, style=wx.CB_DROPDOWN | wx.CB_READONLY)
         self.input_text_obj = [self.input[key] for key in keys]  # use for text event binding and focusing
 
         keys = ['save_dicom', 'quit', 'in_browse', 'out_browse', 'add', 'delete', 'select_all', 'deselect_all',
@@ -64,12 +63,12 @@ class MainFrame(wx.Frame):
         bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
         self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
-        columns = ['Index', 'Tag', 'Keyword', 'Value', 'Value Type']
+        columns = ['Index', 'Tag', 'Keyword', 'Value']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
-        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 5)
+        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
 
-        keys = ['tag_group', 'tag_element', 'value', 'value_type', 'files_found', 'keyword', 'selected_file',
+        keys = ['tag_group', 'tag_element', 'value', 'files_found', 'keyword', 'selected_file',
                 'modality', 'prepend_file_name', 'search', 'value_rep', 'preview', 'advanced', 'value_help']
         self.label = {key: wx.StaticText(self, wx.ID_ANY, key.replace('_', ' ').title() + ':') for key in keys}
 
@@ -139,9 +138,6 @@ class MainFrame(wx.Frame):
               "specified tag in this file."
         self.input['selected_file'].SetToolTip(msg)
         self.label['selected_file'].SetToolTip(msg)
-
-        self.input['value_type'].SetItems(['str', 'float', 'int'])
-        self.input['value_type'].SetValue('str')
 
         self.update_referenced_tags.SetValue(self.referenced_tag_choices[1])
         self.update_referenced_tags.SetToolTip("Automatically sync Referenced<tag> to new <tag> value to maintain "
@@ -218,7 +214,7 @@ class MainFrame(wx.Frame):
         sizer_edit_wrapper = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Tag Editor"), wx.VERTICAL)
         sizer_edit = wx.BoxSizer(wx.HORIZONTAL)
         sizer_edit_widgets = {key: wx.BoxSizer(wx.VERTICAL)
-                              for key in ['tag_group', 'tag_element', 'value', 'value_type', 'value_help',
+                              for key in ['tag_group', 'tag_element', 'value', 'value_help',
                                           'add', 'search', 'advanced']}
         sizer_value_keyword = wx.BoxSizer(wx.VERTICAL)
         sizer_edit_buttons = wx.BoxSizer(wx.HORIZONTAL)
@@ -245,7 +241,7 @@ class MainFrame(wx.Frame):
         sizer_main.Add(sizer_input_dir_wrapper, 0, wx.EXPAND | wx.ALL, 5)
 
         # Input Widgets
-        for key in ['search', 'tag_group', 'tag_element', 'value_type', 'value_help', 'advanced']:
+        for key in ['search', 'tag_group', 'tag_element', 'value_help', 'advanced']:
             obj = self.button if key in {'search', 'value_help', 'advanced'} else self.input
             sizer_edit_widgets[key].Add(self.label[key], 0, wx.EXPAND, 0)
             sizer_edit_widgets[key].Add(obj[key], 0, wx.EXPAND, 0)
@@ -321,11 +317,7 @@ class MainFrame(wx.Frame):
 
     @property
     def value(self):
-        value = self.input['value'].GetValue()
-        type_ = get_type(self.input['value_type'].GetValue())
-        if len(value) and value[0] == '[' and value[-1] == ']':
-            return value
-        return type_(value)
+        return self.input['value'].GetValue()
 
     @property
     def keyword(self):
@@ -396,8 +388,7 @@ class MainFrame(wx.Frame):
         row = [row_index,
                str(self.tag),
                self.keyword,
-               self.input['value'].GetValue(),
-               self.input['value_type'].GetValue()]
+               self.input['value'].GetValue()]
         if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
@@ -492,7 +483,6 @@ class MainFrame(wx.Frame):
             element = tag[1].strip()
             self.input['tag_group'].SetValue(group)
             self.input['tag_element'].SetValue(element)
-            self.input['value_type'].SetValue(selected_data[0][4])
             self.update_keyword()
             self.update_init_value()
             self.update_preview()
@@ -657,20 +647,7 @@ class MainFrame(wx.Frame):
         """Update Keyword in the Tag Editor based on the current Tag and currently selected file"""
         keyword = self.keyword if self.group and self.element else ''
         self.label['keyword'].SetLabel("Keyword: %s" % keyword)
-        self.update_tag_type()
         self.update_vr()
-
-    def update_tag_type(self):
-        """Update tag type in the Tag Editor based on the current Tag and currently selected file"""
-        tag = self.tag.tag
-        tag_type = 'str'
-        for file_path in self.file_paths:
-            try:
-                tag_type = self.ds[file_path].get_tag_type(tag)
-                break
-            except Exception:
-                pass
-        self.input['value_type'].SetValue(tag_type)
 
     def update_vr(self):
         value = self.tag.vr if self.group and self.element else ''
@@ -775,7 +752,6 @@ class MainFrame(wx.Frame):
         return {'tag': Tag(group, element),
                 'keyword': row_data[2],
                 'value_str': row_data[3],
-                'value_type': get_type(row_data[4]),
                 'options': self.all_options[row_data[0]]}
 
     def set_output_paths(self, check_only=False):
