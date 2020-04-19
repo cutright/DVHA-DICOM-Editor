@@ -141,7 +141,7 @@ class DICOMEditor:
         all_tag_values = []
         for address in self.find_tag(tag):
             v = address[-1][1]
-            all_tag_values.append("%s(%s)" % (type(v), str(v)))
+            all_tag_values.append(v)
 
         return list(set(all_tag_values))
 

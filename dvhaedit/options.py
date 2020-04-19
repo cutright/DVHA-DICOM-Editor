@@ -22,3 +22,5 @@ class Options:
 
         # Random Number generator
         self.rand_digits = 5
+
+        self.enum_float_precision = "%0.8f"

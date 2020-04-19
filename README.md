@@ -2,8 +2,7 @@
 
 # DVHA DICOM Editor
 Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoenix) and [pydicom](https://github.com/pydicom/pydicom)  
-* No admin rights needed
-* Executables provided, which require no installation  
+* [Executables](https://github.com/cutright/DVHA-DICOM-Editor/releases) provided, which require no installation  
 * Create templates for routine tag editing
 * Search for DICOM tags by keyword
 * Dynamically define new DICOM tag values based on:
@@ -22,7 +21,7 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
         <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality"
              alt="LGTM Python Code Quality" /></a>
 
-Installation
+Source-Code Installation
 ---------
 To install via pip:
 ```
@@ -36,7 +35,6 @@ If you've cloned the project, but did not run the setup.py installer, launch DVH
 ```
 python dvhaedit_app.py
 ```
-Or check out the [Releases](https://github.com/cutright/DVHA-DICOM-Editor/releases) page for an executable.
 
 Dynamic Value Setting
 ------------------------------------------------------------------------------
