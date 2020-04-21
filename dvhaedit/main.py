@@ -848,7 +848,7 @@ class MainFrame(wx.Frame):
         if self.value_generators:
             value_generator = self.value_generators.pop(0)
             iteration = self.data_table.row_count - len(self.value_generators)
-            ValueGenProgressFrame(self.ds, value_generator, iteration, self.data_table.row_count)
+            wx.CallAfter(ValueGenProgressFrame, self.ds, value_generator, iteration, self.data_table.row_count)
         else:
             wx.CallAfter(self.apply_edits)
 
@@ -858,7 +858,7 @@ class MainFrame(wx.Frame):
     def apply_edits(self):
         """Send table data to apply edits thread, edit DICOM tags"""
         all_row_data = [self.get_table_row_data(row) for row in range(self.data_table.row_count)]
-        ApplyEditsProgressFrame(self.ds, self.values_dicts, all_row_data)
+        wx.CallAfter(ApplyEditsProgressFrame, self.ds, self.values_dicts, all_row_data)
 
     # ------------------------------------------------------------------------------
     # Step 3: View error log, check for file over-writing, sync referenced tags, save DICOM to file
@@ -875,7 +875,7 @@ class MainFrame(wx.Frame):
             if dlg.ShowModal() == wx.ID_NO:
                 return
             else:
-                self.do_save_dicom_step_2()
+                wx.CallAfter(self.do_save_dicom_step_2)
 
     def do_save_dicom_step_2(self):
         # set_output_paths(check_only=True) will return True if any file would be over-written
@@ -887,7 +887,7 @@ class MainFrame(wx.Frame):
                 if dlg.ShowModal() == wx.ID_NO:
                     return
 
-        self.do_save_dicom_step_3()
+        wx.CallAfter(self.do_save_dicom_step_3)
 
     def do_save_dicom_step_3(self):
         self.set_output_paths()
@@ -901,7 +901,7 @@ class MainFrame(wx.Frame):
             self.do_saving_progress_frame()
 
     def do_saving_progress_frame(self):
-        SavingProgressFrame(self.ds.values())
+        wx.CallAfter(SavingProgressFrame, self.ds.values())
 
     # ------------------------------------------------------------------------------
     # Step 4: Save history, if requested, reparse original data since it has been edited directly

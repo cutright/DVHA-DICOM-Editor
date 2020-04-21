@@ -138,4 +138,4 @@ class ProgressFrameWorker(Thread):
             result = self.action(obj)
         if self.action_msg is not None:
             msg = {'obj': obj, 'data': result}
-            pub.sendMessage(self.action_msg, msg=msg)
+            wx.CallAfter(pub.sendMessage, self.action_msg, msg=msg)
