@@ -1,6 +1,7 @@
 include dvhaedit_app.py
 include dvhaedit/*.py
-include dvhaedit/*.txt
-include dvhaedit/icons/*
+include dvhaedit/resources/*.txt
+include dvhaedit/resources/icons/*
 include CHANGELOG.md
 include README.md
+include LICENSE.txt
