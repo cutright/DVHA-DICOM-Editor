@@ -76,7 +76,7 @@ class ProgressFrame(wx.Dialog):
         :type msg: dict
         """
         label = msg['label']
-        wx.CallAfter(self.label.SetLabelText, label)
+        # wx.CallAfter(self.label.SetLabelText, label)
         wx.CallAfter(self.gauge.SetValue, int(100 * msg['gauge']))
 
     def close(self):

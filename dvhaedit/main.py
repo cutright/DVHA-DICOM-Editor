@@ -63,10 +63,10 @@ class MainFrame(wx.Frame):
         bmp = wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, size=(16, 16))
         self.button['value_help'] = wx.BitmapButton(self, id=wx.ID_ANY, bitmap=bmp)
 
-        columns = ['Index', 'Tag', 'Keyword', 'Value']
+        columns = ['Tag', 'Keyword', 'Value']
         data = {c: [''] for c in columns}
         self.list_ctrl = wx.ListCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.LC_REPORT)
-        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * 4)
+        self.data_table = DataTable(self.list_ctrl, data=data, columns=columns, widths=[-2] * len(columns))
 
         keys = ['tag_group', 'tag_element', 'value', 'files_found', 'keyword', 'selected_file',
                 'modality', 'prepend_file_name', 'search', 'value_rep', 'preview', 'advanced', 'value_help']
@@ -202,6 +202,7 @@ class MainFrame(wx.Frame):
         pub.subscribe(self.call_next_value_generator, 'value_gen_complete')
         pub.subscribe(self.update_dicom_edits, 'update_dicom_edits')
         pub.subscribe(self.do_save_dicom, 'do_save_dicom')
+        pub.subscribe(self.do_save_dicom_step_2, 'do_save_dicom_step_2')
 
     def __do_layout(self):
         """Create GUI layout"""
@@ -382,13 +383,19 @@ class MainFrame(wx.Frame):
 
     def on_add(self, *evt):
         """Add a tag edit"""
-        keys_int = [int(key) for key in list(self.all_options)]
-        row_index = '0' if not keys_int else str(max(keys_int) + 1)
-        self.all_options[row_index] = deepcopy(self.current_options)
-        row = [row_index,
-               str(self.tag),
-               self.keyword,
-               self.input['value'].GetValue()]
+
+        tag_str = str(self.tag)
+
+        # Delete tag in table if found
+        row_index = self.data_table.get_row_index_from_tag(tag_str)
+        if row_index is not None:
+            self.data_table.delete_row(row_index)
+
+        # Store options
+        self.all_options[tag_str] = deepcopy(self.current_options)
+
+        # Add data to table
+        row = [str(self.tag), self.keyword, self.input['value'].GetValue()]
         if self.data_table_has_data:
             self.data_table.append_row(row)
         else:
@@ -397,6 +404,7 @@ class MainFrame(wx.Frame):
             self.data_table.set_data(data, columns)
         self.data_table.set_column_widths(auto=True)
 
+        # Reset input widgets
         for key in ['tag_group', 'tag_element', 'value']:
             self.input[key].SetValue('')
 
@@ -419,10 +427,14 @@ class MainFrame(wx.Frame):
     def on_delete(self, *evt):
         """Delete the selected tag edits"""
         for index in self.selected_indices[::-1]:
+            tag = self.data_table.get_row(index)[0]
+            if tag in list(self.all_options):
+                self.all_options.pop(tag)
             self.data_table.delete_row(index)
         self.update_delete_enable()
         self.update_save_template_enable()
         self.update_save_dicom_enable()
+        self.update_preview()
 
     def on_select_all(self, *evt):
         """Select all tag edits"""
@@ -478,7 +490,7 @@ class MainFrame(wx.Frame):
         self.update_delete_enable()
         selected_data = self.data_table.selected_row_data
         if selected_data:
-            tag = selected_data[0][1][1:-1].split(',')
+            tag = selected_data[0][0][1:-1].split(',')
             group = tag[0].strip()
             element = tag[1].strip()
             self.input['tag_group'].SetValue(group)
@@ -655,8 +667,6 @@ class MainFrame(wx.Frame):
 
     def update_preview(self):
         """Apply the tag edits to every file in self.ds, return any errors"""
-        # TODO: auto-update Value Type based on VR
-        # TODO: validate New Value against Value Type
         tag = self.tag
         value_str = self.value
         value_gen = ValueGenerator(value_str, tag.tag, self.current_options)
@@ -664,6 +674,9 @@ class MainFrame(wx.Frame):
         values = value_gen(self.ds, file_path=file) if file in self.ds.keys() else ''
         value = str(values[0]) if values else ''
         self.input['preview'].SetValue(value)
+
+        label = 'Update' if str(self.tag) in list(self.all_options) else 'Add'
+        self.button['add'].SetLabel(label)
 
     #################################################################################
     # Data updaters
@@ -747,11 +760,11 @@ class MainFrame(wx.Frame):
 
     def get_table_row_data(self, row):
         row_data = self.data_table.get_row(row)
-        group = row_data[1].split(',')[0][1:].strip()
-        element = row_data[1].split(',')[1][:-1].strip()
+        group = row_data[0].split(',')[0][1:].strip()
+        element = row_data[0].split(',')[1][:-1].strip()
         return {'tag': Tag(group, element),
-                'keyword': row_data[2],
-                'value_str': row_data[3],
+                'keyword': row_data[1],
+                'value_str': row_data[2],
                 'options': self.all_options[row_data[0]]}
 
     def set_output_paths(self, check_only=False):
@@ -850,11 +863,18 @@ class MainFrame(wx.Frame):
     def do_save_dicom(self):
         # If any errors detected, display in GUI and ask user if they'd like to continue
         if self.error_log:
-            ViewErrorLog(self.error_log)
-            with AskYesNo(self, "Ignore errors and write DICOM files anyway?") as dlg:
-                if dlg.ShowModal() == wx.ID_NO:
-                    return
+            wx.CallAfter(ViewErrorLog, self.error_log)
+        else:
+            wx.CallAfter(self.do_save_dicom_step_2)
 
+    def do_save_dicom_step_1a(self):
+        with AskYesNo(self, "Ignore errors and write DICOM files anyway?") as dlg:
+            if dlg.ShowModal() == wx.ID_NO:
+                return
+            else:
+                self.do_save_dicom_step_2()
+
+    def do_save_dicom_step_2(self):
         # set_output_paths(check_only=True) will return True if any file would be over-written
         if self.set_output_paths(check_only=True):
             msg = "You will overwrite files with this action. Continue?"
@@ -863,6 +883,10 @@ class MainFrame(wx.Frame):
             with wx.MessageDialog(self, msg, caption, flags) as dlg:
                 if dlg.ShowModal() == wx.ID_NO:
                     return
+
+        self.do_save_dicom_step_3()
+
+    def do_save_dicom_step_3(self):
         self.set_output_paths()
 
         # Check for any referenced tags by sending edit history to each data set

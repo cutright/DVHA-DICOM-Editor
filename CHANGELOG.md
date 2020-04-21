@@ -3,6 +3,8 @@
 v0.7 (TBD)
 --------------------
  - Remove explicit DICOM tag value typing, let pydicom handle it
+ - Use DICOM tag to track advanced options rather than a row index
+ - Major threading issues resolved for Windows
 
 v0.6 (2020.04.16)
 --------------------
