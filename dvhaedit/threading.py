@@ -76,7 +76,7 @@ class ProgressFrame(wx.Dialog):
         :type msg: dict
         """
         label = msg['label']
-        # wx.CallAfter(self.label.SetLabelText, label)
+        wx.CallAfter(self.label.SetLabelText, label)
         wx.CallAfter(self.gauge.SetValue, int(100 * msg['gauge']))
 
     def close(self):
@@ -127,10 +127,10 @@ class ProgressFrameWorker(Thread):
 
         msg = {'label': 'Process Complete',
                'gauge': 1.}
-        pub.sendMessage("progress_update", msg=msg)
+        wx.CallAfter(pub.sendMessage, "progress_update", msg=msg)
 
     def do_action(self, obj, msg):
-        pub.sendMessage("progress_update", msg=msg)
+        wx.CallAfter(pub.sendMessage, "progress_update", msg=msg)
 
         if self.kwargs:
             result = self.action(**obj)
