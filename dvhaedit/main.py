@@ -660,6 +660,7 @@ class MainFrame(wx.Frame):
         keyword = self.keyword if self.group and self.element else ''
         self.label['keyword'].SetLabel("Keyword: %s" % keyword)
         self.update_vr()
+        self.update_add_button_label()
 
     def update_vr(self):
         value = self.tag.vr if self.group and self.element else ''
@@ -674,7 +675,9 @@ class MainFrame(wx.Frame):
         values = value_gen(self.ds, file_path=file) if file in self.ds.keys() else ''
         value = str(values[0]) if values else ''
         self.input['preview'].SetValue(value)
+        self.update_add_button_label()
 
+    def update_add_button_label(self):
         label = 'Update' if str(self.tag) in list(self.all_options) else 'Add'
         self.button['add'].SetLabel(label)
 
