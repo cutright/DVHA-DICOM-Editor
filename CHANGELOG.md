@@ -1,6 +1,6 @@
 # Change log of DVHA DICOM Editor
 
-v0.7 (TBD)
+v0.7 (2020.04.21)
 --------------------
  - Remove explicit DICOM tag value typing, let pydicom handle it
  - Use DICOM tag to track advanced options rather than a row index
