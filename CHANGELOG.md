@@ -1,5 +1,11 @@
 # Change log of DVHA DICOM Editor
 
+v0.7 (2020.04.21)
+--------------------
+ - Remove explicit DICOM tag value typing, let pydicom handle it
+ - Use DICOM tag to track advanced options rather than a row index
+ - Major threading issues resolved for Windows
+
 v0.6 (2020.04.16)
 --------------------
  - List comprehension for MultiValue tags (e.g., ImageOrientation)

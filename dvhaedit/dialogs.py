@@ -12,6 +12,7 @@ Classes used to edit pydicom datasets
 
 import wx
 import re
+from pubsub import pub
 from pydicom.uid import RE_VALID_UID_PREFIX
 from dvhaedit._version import __version__
 from dvhaedit.data_table import DataTable
@@ -99,6 +100,7 @@ class ViewErrorLog(wx.Dialog):
         """Open dialog, close on Dismiss click"""
         self.ShowModal()
         self.Destroy()
+        wx.CallAfter(pub.sendMessage, "do_save_dicom_step_2")
 
     def on_save(self, *evt):
         """On save button click, create save window to save error log"""
