@@ -117,13 +117,6 @@ def get_window_size(width, height):
     return tuple([int(width * user_width), int(height * user_height)])
 
 
-def get_type(type_str):
-    type_map = {'float': float, 'int': int, 'str': str}
-    if type_str.lower() in list(type_map):
-        return type_map[type_str.lower()]
-    return str
-
-
 def save_csv_to_file(csv_data, abs_file_path):
     """
     Save a python object acceptable for pickle to the provided file path

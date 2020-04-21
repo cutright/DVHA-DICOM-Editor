@@ -236,6 +236,11 @@ class DataTable:
             if self.layout:
                 self.layout.DeleteItem(index)
 
+    def get_row_index_from_tag(self, tag_to_check):
+        for i, tag in enumerate(self.data['Tag']):
+            if tag == tag_to_check:
+                return i
+
     def delete_all_rows(self, layout_only=False, force_delete_data=False):
         """
         Clear all data from self.data and the layout view

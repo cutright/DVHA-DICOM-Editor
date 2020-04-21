@@ -127,10 +127,10 @@ class ProgressFrameWorker(Thread):
 
         msg = {'label': 'Process Complete',
                'gauge': 1.}
-        pub.sendMessage("progress_update", msg=msg)
+        wx.CallAfter(pub.sendMessage, "progress_update", msg=msg)
 
     def do_action(self, obj, msg):
-        pub.sendMessage("progress_update", msg=msg)
+        wx.CallAfter(pub.sendMessage, "progress_update", msg=msg)
 
         if self.kwargs:
             result = self.action(**obj)

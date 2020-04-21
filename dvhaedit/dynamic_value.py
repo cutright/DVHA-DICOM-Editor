@@ -122,21 +122,18 @@ class ValueGenerator:
 
         # Value-based instances
         enum = []
-        all_float = True
         for ds in self.data_sets:
             values = ds.get_all_tag_values(self.tag)
             for i in range(len(values)):
-                try:
-                    values[i] = "%0.5f" % float(values[i])
-                except ValueError:
-                    all_float = False
+                if 'float' in str(type(values[i])).lower():
+                    values[i] = self.options.enum_float_precision % float(values[i])
+                else:
+                    values[i] = str(values[i])
             enum.extend(values)
             self.send_progress_update(0.95 * (counter / count))
             counter += 1
-        enum = list(set(enum))
-        if all_float:
-            enum.sort(key=float)
-        self.enum_instances['value'] = enum
+
+        self.enum_instances['value'] = sorted(list(set(enum)))
 
         # set uids
         prefix = self.options.prefix if hasattr(self.options, 'prefix') else None
@@ -319,6 +316,12 @@ class ValueGenerator:
                 value = addresses[index][-1][1]
             else:
                 return None
+
+        if 'float' in str(type(value)).lower():
+            value = self.options.enum_float_precision % value
+        else:
+            value = str(value)
+
         return lookup['value'][str(value)]
 
 
