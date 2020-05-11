@@ -90,3 +90,17 @@ All value typing is handled by pydicom.
 ### Example
 The DICOM tag `ImageOrientationPatient` (0020, 0037) is a list of 6 integers. If you want 
 this orientation to be head first-supine (HFS), it's value should be set to `[1, 0, 0, 0, 1, 0]`. 
+
+    =========================== =======================
+    Orientation                 ImageOrientationPatient
+    =========================== =======================
+    Feet First Decubitus Left   [0, 1, 0, 1, 0, 0]
+    Feet First Decubitus Right  [0, -1, 0, -1, 0, 0]
+    Feet First Prone            [1, 0, 0, 0, -1, 0]
+    Feet First Supine           [-1, 0, 0, 0, 1, 0]
+    Head First Decubitus Left   [0, -1, 0, 1, 0, 0]
+    Head First Decubitus Right  [0, 1, 0, -1, 0, 0]
+    Head First Prone            [-1, 0, 0, 0, -1, 0]
+    Head First Supine           [1, 0, 0, 0, 1, 0]
+    =========================== =======================
+    https://arxiv.org/ftp/arxiv/papers/1406/1406.0014.pdf Table 1
