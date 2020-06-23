@@ -100,7 +100,7 @@ class ViewErrorLog(wx.Dialog):
         """Open dialog, close on Dismiss click"""
         self.ShowModal()
         self.Destroy()
-        wx.CallAfter(pub.sendMessage, "do_save_dicom_step_2")
+        wx.CallAfter(pub.sendMessage, "do_save_dicom_step_3")
 
     def on_save(self, *evt):
         """On save button click, create save window to save error log"""

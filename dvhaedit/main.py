@@ -23,7 +23,7 @@ from dvhaedit._version import __version__
 from dvhaedit.data_table import DataTable
 from dvhaedit.dialogs import ErrorDialog, ViewErrorLog, AskYesNo, TagSearchDialog, About, DynamicValueHelp,\
     AdvancedSettings
-from dvhaedit.threads import ParsingProgressFrame, SavingProgressFrame, RefSyncProgressFrame, ValueGenProgressFrame,\
+from dvhaedit.threads import ParsingProgressFrame, RefSyncProgressFrame, ValueGenProgressFrame,\
     ApplyEditsProgressFrame
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
@@ -92,6 +92,8 @@ class MainFrame(wx.Frame):
         self.refresh_needed = False
 
         self.directory = {'in': '', 'out': ''}
+        self.selected_file = None
+        self.update_selected_file()
 
         self.__set_properties()
         self.__add_menubar()
@@ -196,13 +198,12 @@ class MainFrame(wx.Frame):
     def __do_subscribe(self):
         pub.subscribe(self.add_parsed_data, "add_parsed_data")
         pub.subscribe(self.on_parse_complete, "parse_complete")
-        pub.subscribe(self.on_save_complete, 'save_complete')
-        pub.subscribe(self.do_saving_progress_frame, 'ref_sync_complete')
+        pub.subscribe(self.on_save_complete, 'ref_sync_complete')
         pub.subscribe(self.add_value_dicts, 'add_value_dicts')
         pub.subscribe(self.call_next_value_generator, 'value_gen_complete')
         pub.subscribe(self.update_dicom_edits, 'update_dicom_edits')
         pub.subscribe(self.do_save_dicom, 'do_save_dicom')
-        pub.subscribe(self.do_save_dicom_step_2, 'do_save_dicom_step_2')
+        pub.subscribe(self.do_save_dicom_step_3, 'do_save_dicom_step_3')
 
     def __do_layout(self):
         """Create GUI layout"""
@@ -327,10 +328,6 @@ class MainFrame(wx.Frame):
     @property
     def selected_indices(self):
         return get_selected_listctrl_items(self.list_ctrl)
-
-    @property
-    def selected_file(self):
-        return self.input['selected_file'].GetSelection()
 
     @property
     def selected_data_set(self):
@@ -478,7 +475,17 @@ class MainFrame(wx.Frame):
 
         # Can be expensive, on_save_dicom, split to enable threading
         # calls do_save_dicom when done
-        self.calculate_value_generators()
+
+        if self.set_output_paths(check_only=True):
+            msg = "You will overwrite files with this action. Continue?"
+            caption = "Are you sure?"
+            flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
+            with wx.MessageDialog(self, msg, caption, flags) as dlg:
+                if dlg.ShowModal() == wx.ID_NO:
+                    return
+
+        self.set_output_paths()
+        wx.CallAfter(self.calculate_value_generators)
 
     def on_quit(self, *evt):
         self.Close()
@@ -571,6 +578,10 @@ class MainFrame(wx.Frame):
     # Combobox Event tickers
     #################################################################################
     def on_file_select(self, *evt):
+        self.clear_current_dcm()
+        self.update_selected_file()
+        self.load_current_dcm()
+
         self.update_modality()
         self.update_init_value()
 
@@ -639,12 +650,11 @@ class MainFrame(wx.Frame):
     def update_init_value(self):
         """Update Value in the Tag Editor based on the currently selected file"""
         if self.ds and self.group and self.element:
-            ds = self.ds[self.file_paths[self.selected_file]]
             try:
-                value = str(ds.get_tag_value(self.tag.tag))
+                value = str(self.current_dcm.get_tag_value(self.tag.tag))
             except Exception:
                 try:
-                    address = ds.find_tag(self.tag.tag)[0]
+                    address = self.current_dcm.find_tag(self.tag.tag)[0]
                     value = str(address[-1][1])
                 except Exception:
                     value = ''
@@ -652,7 +662,7 @@ class MainFrame(wx.Frame):
 
     def update_modality(self):
         """Update Modality in the Directory box based on the currently selected file"""
-        modality = self.ds[self.file_paths[self.selected_file]].modality if self.file_paths else ''
+        modality = self.current_dcm.modality if self.file_paths else ''
         self.label['modality'].SetLabel('Modality: ' + modality)
 
     def update_keyword(self):
@@ -803,16 +813,19 @@ class MainFrame(wx.Frame):
     # pub subscribe functions
     #################################################################################
     def add_parsed_data(self, msg):
-        self.ds[msg['obj']['dcm']] = msg['data']
+        self.ds[msg['obj']['file_path']] = msg['data']
 
     def on_parse_complete(self):
 
         # remove files that could not be parsed
-        bad_files = [(i, f) for i, f in enumerate(self.file_paths) if self.ds[f].dcm is None]
+        bad_files = [(i, f) for i, f in enumerate(self.file_paths) if self.ds[f].dcm is False]
         for (i, f) in bad_files[::-1]:
             self.ignored_file_paths.append(self.file_paths.pop(i))
             self.ds.pop(f)
         self.update_files_found()
+
+        self.update_selected_file()
+        self.load_current_dcm()
 
         self.update_combobox_files()
         self.update_init_value()
@@ -868,40 +881,18 @@ class MainFrame(wx.Frame):
         if self.error_log:
             wx.CallAfter(ViewErrorLog, self.error_log)
         else:
-            wx.CallAfter(self.do_save_dicom_step_2)
-
-    def do_save_dicom_step_1a(self):
-        with AskYesNo(self, "Ignore errors and write DICOM files anyway?") as dlg:
-            if dlg.ShowModal() == wx.ID_NO:
-                return
-            else:
-                wx.CallAfter(self.do_save_dicom_step_2)
-
-    def do_save_dicom_step_2(self):
-        # set_output_paths(check_only=True) will return True if any file would be over-written
-        if self.set_output_paths(check_only=True):
-            msg = "You will overwrite files with this action. Continue?"
-            caption = "Are you sure?"
-            flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
-            with wx.MessageDialog(self, msg, caption, flags) as dlg:
-                if dlg.ShowModal() == wx.ID_NO:
-                    return
-
-        wx.CallAfter(self.do_save_dicom_step_3)
+            wx.CallAfter(self.do_save_dicom_step_3)
 
     def do_save_dicom_step_3(self):
-        self.set_output_paths()
+        # self.set_output_paths()
 
         # Check for any referenced tags by sending edit history to each data set
         if self.update_referenced_tags.GetSelection() and self.a_referenced_tag_exists(self.history):
             check_all_tags = True if self.update_referenced_tags.GetSelection() == 2 else False
             RefSyncProgressFrame(self.history, self.ds.values(), check_all_tags)
-            # This will call SavingProgressFrame when done
+            # This will call on_save_complete when done
         else:
-            self.do_saving_progress_frame()
-
-    def do_saving_progress_frame(self):
-        wx.CallAfter(SavingProgressFrame, self.ds.values())
+            self.on_save_complete()
 
     # ------------------------------------------------------------------------------
     # Step 4: Save history, if requested, reparse original data since it has been edited directly
@@ -911,12 +902,12 @@ class MainFrame(wx.Frame):
         if self.save_history.GetValue():
             self.save_history_to_file()
 
-        msg = "Re-parse input directory? This is recommended if you wish to apply new edits."
-        caption = "Are you sure?"
-        flags = wx.ICON_WARNING | wx.YES | wx.NO
-        with wx.MessageDialog(self, msg, caption, flags) as dlg:
-            if dlg.ShowModal() == wx.ID_NO:
-                return
+        # msg = "Re-parse input directory? This is recommended if you wish to apply new edits."
+        # caption = "Are you sure?"
+        # flags = wx.ICON_WARNING | wx.YES | wx.NO
+        # with wx.MessageDialog(self, msg, caption, flags) as dlg:
+        #     if dlg.ShowModal() == wx.ID_NO:
+        #         return
         self.get_files()
         wx.CallAfter(self.refresh_ds)
 
@@ -946,6 +937,23 @@ class MainFrame(wx.Frame):
     @staticmethod
     def on_report_issue(evt):
         webbrowser.open_new_tab("https://github.com/cutright/DVHA-DICOM-Editor/issues")
+
+    #################################################################################
+    # New to v0.8
+    #################################################################################
+    @property
+    def current_dcm(self):
+        print(self.selected_file, self.file_paths[self.selected_file])
+        return self.ds[self.file_paths[self.selected_file]]
+
+    def clear_current_dcm(self):
+        self.current_dcm.clear_dcm()
+
+    def load_current_dcm(self):
+        self.current_dcm.load_dcm()
+
+    def update_selected_file(self):
+        self.selected_file = self.input['selected_file'].GetSelection()
 
 
 class MainApp(wx.App):

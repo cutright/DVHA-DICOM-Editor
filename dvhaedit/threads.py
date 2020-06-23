@@ -11,7 +11,7 @@ Expensive calculations for main app that merit threading
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
 from functools import partial
-from dvhaedit.dicom_editor import DICOMEditor, save_dicom, apply_edits, update_referenced_tags
+from dvhaedit.dicom_editor import DICOMEditor, apply_edits, update_referenced_tags
 from dvhaedit.threading import ProgressFrame
 
 
@@ -22,18 +22,18 @@ from dvhaedit.threading import ProgressFrame
 class ParsingProgressFrame(ProgressFrame):
     """Create a window to display DICOM file parsing progress and begin ParseWorker"""
     def __init__(self, file_paths, force_open):
-        kwargs_list = [{'dcm': f, 'force': force_open} for f in file_paths]
+        kwargs_list = [{'file_path': f, 'force': force_open} for f in file_paths]
         ProgressFrame.__init__(self, kwargs_list, DICOMEditor, close_msg='parse_complete',
                                action_msg='add_parsed_data', action_gui_phrase='Parsing File',
                                title='Reading DICOM Headers', kwargs=True)
 
 
-class SavingProgressFrame(ProgressFrame):
-    """Create a window to display DICOM file saving progress and begin SaveWorker"""
-    def __init__(self, data_sets):
-        ProgressFrame.__init__(self, data_sets, save_dicom, close_msg='save_complete',
-                               action_gui_phrase='Saving File',
-                               title='Saving DICOM Data')
+# class SavingProgressFrame(ProgressFrame):
+#     """Create a window to display DICOM file saving progress and begin SaveWorker"""
+#     def __init__(self, data_sets):
+#         ProgressFrame.__init__(self, data_sets, save_dicom, close_msg='save_complete',
+#                                action_gui_phrase='Saving File',
+#                                title='Saving DICOM Data')
 
 
 class RefSyncProgressFrame(ProgressFrame):

@@ -15,7 +15,6 @@ from pubsub import pub
 import pydicom
 from pydicom.datadict import keyword_dict, get_entry
 from pydicom._dicom_dict import DicomDictionary
-from pydicom.errors import InvalidDicomError
 from dvhaedit.utilities import remove_non_alphanumeric, get_sorted_indices
 
 
@@ -24,25 +23,31 @@ keyword_dict.pop('')  # remove the empty keyword
 
 class DICOMEditor:
     """DICOM editing and value getter class"""
-    def __init__(self, dcm, force=False):
+    def __init__(self, file_path, force=False):
         """
-        :param dcm: either a file_path to a DICOM file or a pydicom FileDataset
+        :param file_path: a file_path to a DICOM file
         """
-        if type(dcm) is not pydicom.dataset.FileDataset:
-            try:
-                self.dcm = pydicom.read_file(dcm, force=force)
-            except InvalidDicomError:
-                self.dcm = None
-            self.validate_ds()
 
-        else:
-            self.dcm = dcm
-
+        self.force = force
+        self.file_path = file_path
         self.init_tag_values = {}
         self.history = []
         self.referenced_mode = False
-
         self.output_path = None
+        self.dcm = None
+
+        self.load_dcm()
+        self.clear_dcm()
+
+    def load_dcm(self):
+        try:
+            self.dcm = pydicom.read_file(self.file_path, force=self.force)
+        except Exception:
+            self.dcm = False
+
+    def clear_dcm(self):
+        if self.dcm is not False:
+            self.dcm = None
 
     def validate_ds(self):
         """Check for required properties in the case of an InvalidDicomError"""
@@ -178,6 +183,7 @@ class DICOMEditor:
         """
         file_path = self.output_path if file_path is None else file_path
         self.dcm.save_as(file_path)
+        self.file_path = file_path  # Load the new file if another edit is applied
 
     @property
     def modality(self):
@@ -408,6 +414,7 @@ def apply_edits(values_dicts, all_row_data, data_sets):
             label = "Editing %s for file %s of %s" % (keyword, i+1, len(data_sets))
             msg = {'label': label, 'gauge': float(i) / len(data_sets)}
             pub.sendMessage("progress_update", msg=msg)
+            ds.load_dcm()
             try:
                 if tag.tag in ds.dcm.keys():  # Tag exists in top-level of DICOM dataset
 
@@ -435,6 +442,9 @@ def apply_edits(values_dicts, all_row_data, data_sets):
                                  "Attempt to edit %s to new value: %s\n\t%s\n" %
                                  (dirname(file_path), basename(file_path), modality, tag, value, err_msg))
 
+            ds.save_to_file()
+            ds.clear_dcm()
+
     return {'error_log': '\n'.join(error_log),
             'history': history,
             'ds': data_sets}
@@ -444,7 +454,10 @@ def update_referenced_tags(data_sets, check_all_tags, history_row):
     keyword, old_value, new_value = tuple(history_row)
     if "Referenced%s" % keyword in list(keyword_dict):
         for ds in data_sets:
+            ds.load_dcm()
             ds.sync_referenced_tag(keyword, old_value, new_value, check_all_tags=check_all_tags)
+            ds.save_to_file()
+            ds.clear_dcm()
 
 
 def value_to_list(value):

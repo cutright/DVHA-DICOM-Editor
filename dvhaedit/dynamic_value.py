@@ -66,7 +66,10 @@ class ValueGenerator:
         self.value_generator_callback(0, file_count)
 
         for f_counter, f in enumerate(self.file_paths):
+            ds = self.data_sets[f_counter]
+            ds.load_dcm()
             addresses = self.data_sets[f_counter].find_tag(self.tag)
+            ds.clear_dcm()
             new_values[f] = [self.value.split('*') for _ in range(len(addresses))]
             for i, call_str in enumerate(self.value.split('*')):
                 if i % 2 == 1:
@@ -123,7 +126,9 @@ class ValueGenerator:
         # Value-based instances
         enum = []
         for ds in self.data_sets:
+            ds.load_dcm()
             values = ds.get_all_tag_values(self.tag)
+            ds.clear_dcm()
             for i in range(len(values)):
                 if 'float' in str(type(values[i])).lower():
                     values[i] = self.options.enum_float_precision % float(values[i])
@@ -269,10 +274,13 @@ class ValueGenerator:
     def venum(self, index, file_path):
         """Process a value enumeration"""
         ds = self.data_sets[self.file_paths.index(file_path)]
+        ds.load_dcm()
         try:
             value = ds.get_tag_value(self.tag)
+            ds.clear_dcm()
         except KeyError:
             addresses = ds.find_tag(self.tag)
+            ds.clear_dcm()
             if addresses:
                 value = addresses[index][-1][1]
                 try:
@@ -308,10 +316,13 @@ class ValueGenerator:
     def vmethod(self, index, file_path, lookup):
         """Process a value-like function (except enum)"""
         ds = self.data_sets[self.file_paths.index(file_path)]
+        ds.load_dcm()
         try:
             value = ds.get_tag_value(self.tag)
+            ds.clear_dcm()
         except KeyError:
             addresses = ds.find_tag(self.tag)
+            ds.clear_dcm()
             if addresses:
                 value = addresses[index][-1][1]
             else:
