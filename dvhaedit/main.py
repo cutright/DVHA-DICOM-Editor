@@ -157,7 +157,8 @@ class MainFrame(wx.Frame):
         self.search_sub_folders = wx.CheckBox(
             self, wx.ID_ANY, "Search Sub-Folders"
         )
-        self.search_sub_folders_last_status = False
+        self.search_sub_folders.SetValue(True)
+        self.search_sub_folders_last_status = True
 
         self.force_open = wx.CheckBox(self, wx.ID_ANY, "Force DICOM Read")
 
@@ -214,8 +215,9 @@ class MainFrame(wx.Frame):
                 )
             )
         self.retain_rel_dir.SetToolTip(
-            "If unchecked, all new files will be placed in the output directory. "
-            "Otherwise, the same relative directory structure will be used."
+            "If unchecked, all new files will be placed in the output "
+            "directory. Otherwise, the same relative directory structure will "
+            "be used."
         )
         self.retain_rel_dir.SetValue(True)
         self.save_history.SetToolTip(
@@ -1263,14 +1265,16 @@ class MainFrame(wx.Frame):
     ###########################################################################
     @property
     def current_dcm(self):
-        print(self.selected_file, self.file_paths[self.selected_file])
-        return self.ds[self.file_paths[self.selected_file]]
+        if self.file_paths:
+            return self.ds[self.file_paths[self.selected_file]]
 
     def clear_current_dcm(self):
-        self.current_dcm.clear_dcm()
+        if self.current_dcm is not None:
+            self.current_dcm.clear_dcm()
 
     def load_current_dcm(self):
-        self.current_dcm.load_dcm()
+        if self.current_dcm is not None:
+            self.current_dcm.load_dcm()
 
     def update_selected_file(self):
         self.selected_file = self.input["selected_file"].GetSelection()
