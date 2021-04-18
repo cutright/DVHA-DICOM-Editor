@@ -66,7 +66,7 @@ class ValueGenerator:
         :return: new tag values
         :rtype: dict or list
         """
-        start = datetime.now()
+
         if file_path is None:
             self.file_paths = sorted(list(data_sets))
         else:
