@@ -14,11 +14,13 @@ import sys
 from os.path import join, dirname
 
 SCRIPT_DIR = dirname(__file__)
-PARENT_DIR = getattr(sys, '_MEIPASS', dirname(SCRIPT_DIR))  # PyInstaller compatibility
-RESOURCES_DIR = join(SCRIPT_DIR, 'resources')
-LICENSE_PATH = join(PARENT_DIR, 'LICENSE.txt')
-DYNAMIC_VALUE_HELP = join(RESOURCES_DIR, 'dynamic_value_help.txt')
-ICONS_DIR = join(RESOURCES_DIR, 'icons')
-WIN_APP_ICON = join(ICONS_DIR, 'dvha-edit.ico')
-WIN_FRAME_ICON = join(ICONS_DIR, 'dvha-edit_frame.ico')
-MAC_APP_ICON = join(ICONS_DIR, 'dvha-edit.icns')
+PARENT_DIR = getattr(
+    sys, "_MEIPASS", dirname(SCRIPT_DIR)
+)  # PyInstaller compatibility
+RESOURCES_DIR = join(SCRIPT_DIR, "resources")
+LICENSE_PATH = join(PARENT_DIR, "LICENSE.txt")
+DYNAMIC_VALUE_HELP = join(RESOURCES_DIR, "dynamic_value_help.txt")
+ICONS_DIR = join(RESOURCES_DIR, "icons")
+WIN_APP_ICON = join(ICONS_DIR, "dvha-edit.ico")
+WIN_FRAME_ICON = join(ICONS_DIR, "dvha-edit_frame.ico")
+MAC_APP_ICON = join(ICONS_DIR, "dvha-edit.icns")
