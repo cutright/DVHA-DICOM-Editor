@@ -157,8 +157,8 @@ class MainFrame(wx.Frame):
         self.search_sub_folders = wx.CheckBox(
             self, wx.ID_ANY, "Search Sub-Folders"
         )
-        self.search_sub_folders.SetValue(True)
-        self.search_sub_folders_last_status = True
+
+        self.show_preview = wx.CheckBox(self, wx.ID_ANY, "Calculate")
 
         self.force_open = wx.CheckBox(self, wx.ID_ANY, "Force DICOM Read")
 
@@ -203,6 +203,7 @@ class MainFrame(wx.Frame):
             self.retain_rel_dir,
             self.save_history,
             self.force_open,
+            self.show_preview,
         ]:
             checkbox.SetFont(
                 wx.Font(
@@ -214,6 +215,16 @@ class MainFrame(wx.Frame):
                     "",
                 )
             )
+
+        self.search_sub_folders_last_status = True
+        self.search_sub_folders.SetValue(True)
+        self.show_preview.SetValue(False)
+
+        self.show_preview.SetToolTip(
+            "Calculation can be very time-consuming, disable to avoid "
+            "recalculation on new tag value edit."
+        )
+
         self.retain_rel_dir.SetToolTip(
             "If unchecked, all new files will be placed in the output "
             "directory. Otherwise, the same relative directory structure will "
@@ -332,6 +343,8 @@ class MainFrame(wx.Frame):
             id=self.list_ctrl.GetId(),
         )
 
+        self.Bind(wx.EVT_CHECKBOX, self.update_preview, id=self.show_preview.GetId())
+
     def __do_subscribe(self):
         pub.subscribe(self.add_parsed_data, "add_parsed_data")
         pub.subscribe(self.on_parse_complete, "parse_complete")
@@ -432,9 +445,12 @@ class MainFrame(wx.Frame):
         sizer_value_keyword.Add(
             self.label["value_rep"], 0, wx.LEFT | wx.BOTTOM, 5
         )
-        sizer_value_keyword.Add(
+        sizer_preview_label_row = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_preview_label_row.Add(
             self.label["preview"], 0, wx.BOTTOM | wx.LEFT, 5
         )
+        sizer_preview_label_row.Add(self.show_preview, 0, wx.LEFT, 20)
+        sizer_value_keyword.Add(sizer_preview_label_row, 0, wx.EXPAND, 0)
         sizer_value_keyword.Add(
             self.input["preview"], 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 5
         )
@@ -915,34 +931,39 @@ class MainFrame(wx.Frame):
     def update_modality(self):
         """Update Modality in the dir box based on the selected file"""
         modality = self.current_dcm.modality if self.file_paths else ""
-        self.label["modality"].SetLabel("Modality: " + modality)
+        self.label["modality"].SetLabel(f"Modality: {modality}")
 
     def update_keyword(self):
         """Update Keyword in Tag Editor based on the Tag and selected file"""
         keyword = self.keyword if self.group and self.element else ""
-        self.label["keyword"].SetLabel("Keyword: %s" % keyword)
+        self.label["keyword"].SetLabel(f"Keyword: {keyword}")
         self.update_vr()
         self.update_add_button_label()
 
     def update_vr(self):
         """Update the value representation"""
         value = self.tag.vr if self.group and self.element else ""
-        self.label["value_rep"].SetLabel(
-            "Value Representation (VR): %s" % value
-        )
+        self.label["value_rep"].SetLabel(f"Value Representation (VR): {value}")
 
-    def update_preview(self):
+    def update_preview(self, *evt):
         """Apply the tag edits to every file in self.ds, return any errors"""
         tag = self.tag
         value_str = self.value
-        value_gen = ValueGenerator(value_str, tag.tag, self.current_options)
-        file = self.file_paths[self.selected_file]
-        values = (
-            value_gen(self.ds, file_path=file)
-            if file in self.ds.keys()
-            else ""
-        )
-        value = str(values[0]) if values else ""
+        if self.show_preview.GetValue() and value_str.count("*") and value_str.count("*") % 2 == 0:
+            self.show_preview.SetValue(False)
+            value_gen = ValueGenerator(value_str, tag.tag, self.current_options)
+            file = self.file_paths[self.selected_file]
+            msg = "Calculating new tag value preview. Please wait..."
+            with wx.BusyInfo(msg):
+                wx.Yield()
+                values = (
+                    value_gen(self.ds, file_path=file)
+                    if file in self.ds.keys()
+                    else ""
+                )
+            value = str(values[0]) if values else ""
+        else:
+            value = value_str
         self.input["preview"].SetValue(value)
         self.update_add_button_label()
 
@@ -1217,14 +1238,14 @@ class MainFrame(wx.Frame):
         if self.save_history.GetValue():
             self.save_history_to_file()
 
-        # msg = "Re-parse input directory? This is recommended if you wish to
-        # apply new edits."
-
-        # caption = "Are you sure?"
-        # flags = wx.ICON_WARNING | wx.YES | wx.NO
-        # with wx.MessageDialog(self, msg, caption, flags) as dlg:
-        #     if dlg.ShowModal() == wx.ID_NO:
-        #         return
+        msg = "Re-parse input directory? This is recommended if you wish to " \
+              "apply new edits."
+        caption = "Are you sure?"
+        flags = wx.ICON_WARNING | wx.YES | wx.NO
+        with wx.MessageDialog(self, msg, caption, flags) as dlg:
+            if dlg.ShowModal() == wx.ID_NO:
+                self.clear_files()
+                return
         self.get_files()
         wx.CallAfter(self.refresh_ds)
 
@@ -1278,6 +1299,15 @@ class MainFrame(wx.Frame):
 
     def update_selected_file(self):
         self.selected_file = self.input["selected_file"].GetSelection()
+
+    def clear_files(self):
+        self.ds = {}
+        self.file_paths = []
+        self.ignored_file_paths = []
+        self.update_files_found()
+        self.refresh_needed = False
+        self.selected_file = None
+        self.update_selected_file()
 
 
 class MainApp(wx.App):

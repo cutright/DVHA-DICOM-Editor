@@ -202,9 +202,8 @@ class DICOMEditor:
         """
         file_path = self.output_path if file_path is None else file_path
         self.dcm.save_as(file_path)
-        self.file_path = (
-            file_path  # Load the new file if another edit is applied
-        )
+        # Load the new file if another edit is applied
+        self.file_path = file_path
 
     @property
     def modality(self):
