@@ -739,7 +739,9 @@ class MainFrame(wx.Frame):
         # Can be expensive, on_save_dicom, split to enable threading
         # calls do_save_dicom when done
 
-        if self.set_output_paths(check_only=True):
+        if not self.rename_files.GetValue() and self.set_output_paths(
+            check_only=True
+        ):
             msg = "You will overwrite files with this action. Continue?"
             caption = "Are you sure?"
             flags = wx.ICON_WARNING | wx.YES | wx.NO | wx.NO_DEFAULT
