@@ -170,8 +170,8 @@ class MainFrame(wx.Frame):
 
         self.referenced_tag_choices = [
             "Only Edit Tags Defined in Table",
-            'Update "Referenced" Tags (local files)',
-            'Update "Referenced" Tags (all files)',
+            # 'Update "Referenced" Tags (local files)',
+            # 'Update "Referenced" Tags (all files)',
             "Update All Tags with Matching UID (local files)",
             "Update All Tags with Matching UID (all files)",
         ]
@@ -285,12 +285,10 @@ class MainFrame(wx.Frame):
         self.input["selected_file"].SetToolTip(msg)
         self.label["selected_file"].SetToolTip(msg)
 
-        self.update_referenced_tags.SetValue(self.referenced_tag_choices[1])
+        self.update_referenced_tags.SetValue(self.referenced_tag_choices[0])
         self.update_referenced_tags.SetToolTip(
-            "Automatically sync Referenced<tag> to new <tag> value to "
-            "maintain cross-file connections (e.g., keep RT-Structure "
-            "connection to RT-Plan). If this doesn't work, try Update All "
-            "Tags with Matching UID (much slower)."
+            "Automatically sync referenced tags to maintain cross-file "
+            "connections (e.g., keep RT-Structure connection to RT-Plan)."
         )
 
     def __add_menubar(self):
@@ -1240,10 +1238,15 @@ class MainFrame(wx.Frame):
         if update_referenced_tags and self.a_referenced_tag_exists(
             self.history
         ):
-            check_all_tags = update_referenced_tags in {3, 4}
-            local_only = update_referenced_tags in {1, 3}
-            RefSyncProgressFrame(
-                self.history, self.ds.values(), check_all_tags, local_only
+            # check_all_tags = update_referenced_tags in {3, 4}
+            check_all_tags = True
+            local_only = update_referenced_tags == 1
+            wx.CallAfter(
+                RefSyncProgressFrame,
+                self.history,
+                self.ds.values(),
+                check_all_tags,
+                local_only,
             )
             # This will call on_save_complete when done
         else:
