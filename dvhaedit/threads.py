@@ -105,12 +105,12 @@ class ApplyEditsProgressFrame(ProgressFrame):
 
     # Input list is only one item, the apply edits function send GUI updates
     # to ProgressFrame
-    def __init__(self, data_sets, values_dicts, all_row_data):
+    def __init__(self, data_sets, values_dicts, all_row_data, rename_files):
 
         ProgressFrame.__init__(
             self,
             [data_sets],
-            partial(apply_edits, values_dicts, all_row_data),
+            partial(apply_edits, values_dicts, all_row_data, rename_files),
             close_msg="do_save_dicom",
             action_msg="update_dicom_edits",
             action_gui_phrase="",

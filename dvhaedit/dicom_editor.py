@@ -10,7 +10,7 @@ Classes used to edit pydicom datasets
 #    See the file LICENSE included with this distribution, also
 #    available at https://github.com/cutright/DVHA-DICOM-Editor
 
-from os.path import basename, dirname
+from os.path import basename, dirname, join, isfile
 from pubsub import pub
 import pydicom
 from pydicom.datadict import keyword_dict, get_entry
@@ -194,16 +194,39 @@ class DICOMEditor:
         """
         return self.dcm[tag].keyword
 
-    def save_to_file(self, file_path=None):
+    def save_to_file(self, file_path=None, save_with_default_name=False):
         """
         Save the dataset to a DICOM file with pydicom
         :param file_path: absolute file path
         :type file_path: str
+        :save_with_default_name: save as Modality.SOPInstanceUID.dcm
+        :type save_with_default_name: bool
         """
         file_path = self.output_path if file_path is None else file_path
+        if save_with_default_name:
+            dir_name = dirname(file_path)
+            default_name = self.default_name.replace(".dcm", "")
+            if isfile(join(dir_name, default_name)):
+                default_name = f"{default_name}_2"
+                counter = 2
+                while isfile(join(dir_name, default_name)):
+                    default_name = f"{default_name[:-1]}_{str(counter)}"
+                    counter += 1
+            file_path = join(dir_name, f"{default_name}.dcm")
+
         self.dcm.save_as(file_path)
         # Load the new file if another edit is applied
         self.file_path = file_path
+
+    @property
+    def default_name(self):
+        modality = getattr(self.dcm, "Modality", "UnknownModality")
+        sop_uid = getattr(self.dcm, "SOPInstanceUID", "")
+        if sop_uid and sop_uid.count('.') > 1:
+            uid_split = sop_uid.split('.')
+            sop_uid = f"{uid_split[-2]}.{uid_split[-1]}"
+
+        return f"{modality}.{sop_uid}.dcm"
 
     @property
     def modality(self):
@@ -450,12 +473,7 @@ class TagSearch:
         return "Unknown"
 
 
-def save_dicom(data_set):
-    """Helper function for the Save Worker/Thread"""
-    data_set.save_to_file()
-
-
-def apply_edits(values_dicts, all_row_data, data_sets):
+def apply_edits(values_dicts, all_row_data, rename_file, data_sets):
     """Apply the tag edits to every file in self.ds, return any errors"""
     error_log, history = [], []
     for row in range(len(all_row_data)):
@@ -527,7 +545,7 @@ def apply_edits(values_dicts, all_row_data, data_sets):
                     )
                 )
 
-            ds.save_to_file()
+            ds.save_to_file(save_with_default_name=rename_file)
             ds.clear_dcm()
 
     return {

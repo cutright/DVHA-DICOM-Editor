@@ -16,7 +16,6 @@ from pubsub import pub
 from pydicom.uid import generate_uid
 from secrets import randbelow
 from dvhaedit.paths import DYNAMIC_VALUE_HELP
-from datetime import datetime
 
 
 class ValueGenerator:

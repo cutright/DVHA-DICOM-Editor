@@ -166,6 +166,7 @@ class MainFrame(wx.Frame):
             self, wx.ID_ANY, "Retain relative directory structure"
         )
         self.save_history = wx.CheckBox(self, wx.ID_ANY, "Save edit log")
+        self.rename_files = wx.CheckBox(self, wx.ID_ANY, "Rename files")
 
         self.referenced_tag_choices = [
             "Only Edit Tags Defined in Table",
@@ -204,6 +205,7 @@ class MainFrame(wx.Frame):
             self.save_history,
             self.force_open,
             self.show_preview,
+            self.rename_files,
         ]:
             checkbox.SetFont(
                 wx.Font(
@@ -235,6 +237,11 @@ class MainFrame(wx.Frame):
             "Save a text file of tag edits to the output directory."
         )
         self.save_history.SetValue(True)
+        self.rename_files.SetToolTip(
+            "Rename files to <Modality>.<trimmed_SOPInstanceUID>.dcm. Files "
+            "will be enumerated if file name already exists"
+        )
+        self.rename_files.SetValue(False)
 
         self.button["in_browse"].SetLabel(u"Browse…")
         self.button["out_browse"].SetLabel(u"Browse…")
@@ -476,7 +483,8 @@ class MainFrame(wx.Frame):
         # Output Directory Browser
         sizer_output_dir.Add(self.input["out_dir"], 1, wx.EXPAND | wx.ALL, 5)
         sizer_output_checkboxes.Add(self.retain_rel_dir, 0, wx.RIGHT, 15)
-        sizer_output_checkboxes.Add(self.save_history, 0, 0, 5)
+        sizer_output_checkboxes.Add(self.save_history, 0, wx.RIGHT, 15)
+        sizer_output_checkboxes.Add(self.rename_files, 0, 0, 0)
         sizer_output_dir.Add(
             sizer_output_checkboxes, 0, wx.LEFT | wx.BOTTOM, 5
         )
@@ -1194,7 +1202,7 @@ class MainFrame(wx.Frame):
             for row in range(self.data_table.row_count)
         ]
         wx.CallAfter(
-            ApplyEditsProgressFrame, self.ds, self.values_dicts, all_row_data
+            ApplyEditsProgressFrame, self.ds, self.values_dicts, all_row_data, self.rename_files.GetValue()
         )
 
     # -------------------------------------------------------------------------
