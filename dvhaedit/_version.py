@@ -3,4 +3,4 @@
 
 # _version.py
 
-__version__ = "0.8dev"
+__version__ = "0.8"

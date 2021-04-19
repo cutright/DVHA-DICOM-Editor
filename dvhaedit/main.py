@@ -48,6 +48,7 @@ from dvhaedit.threads import (
 from dvhaedit.dicom_editor import Tag
 from dvhaedit.dynamic_value import ValueGenerator
 from dvhaedit.options import Options
+from dvhaedit.paths import ANON_TEMPLATE
 from dvhaedit.utilities import (
     set_msw_background_color,
     get_file_paths,
@@ -107,6 +108,7 @@ class MainFrame(wx.Frame):
             "deselect_all",
             "save_template",
             "load_template",
+            "anonymize",
             "advanced",
         ]
         self.button = {
@@ -351,6 +353,12 @@ class MainFrame(wx.Frame):
         )
 
         self.Bind(
+            wx.EVT_LIST_COL_CLICK,
+            self.data_table.sort_table_by_evt,
+            self.list_ctrl,
+        )
+
+        self.Bind(
             wx.EVT_CHECKBOX, self.update_preview, id=self.show_preview.GetId()
         )
 
@@ -472,6 +480,7 @@ class MainFrame(wx.Frame):
             "deselect_all",
             "save_template",
             "load_template",
+            "anonymize",
         ]:
             sizer_edit_buttons.Add(
                 self.button[key], 0, wx.EXPAND | wx.RIGHT | wx.LEFT, 5
@@ -648,7 +657,7 @@ class MainFrame(wx.Frame):
             data = {columns[i]: [value] for i, value in enumerate(row)}
             self.data_table.set_data(data, columns)
         self.data_table.set_column_widths(auto=True)
-        self.data_table.sort_table_by_column(0)
+        # self.data_table.sort_table_by_column(0)
 
         # Reset input widgets
         for key in ["tag_group", "tag_element", "value"]:
@@ -725,6 +734,18 @@ class MainFrame(wx.Frame):
         self.update_save_template_enable()
         self.update_save_dicom_enable()
 
+    def on_anonymize(self, *evt):
+        """Load anonymize template"""
+        try:
+            loaded_data = load_object_from_file(ANON_TEMPLATE)
+            self.data_table.load_save_data(loaded_data["table"])
+            self.all_options = loaded_data["options"]
+        except Exception:
+            self.data_table.clear()
+
+        self.update_save_template_enable()
+        self.update_save_dicom_enable()
+
     def on_save_dicom(self, *evt):
         """Apply edits, check for errors, then run save_files"""
         if self.dir_contents_have_changed:
@@ -785,6 +806,8 @@ class MainFrame(wx.Frame):
             self.input["tag_element"],
         }:
             self.update_keyword()
+        self.update_add_button_label()
+        self.update_add_enable()
         evt.Skip()
 
     def on_tab_key(self, evt):

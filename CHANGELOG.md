@@ -1,5 +1,11 @@
 # Change log of DVHA DICOM Editor
 
+v0.8 (2021.04.19)
+-----------------
+ - Avoid storing all DICOM files in memory at once
+ - Referenced tag updating fixes
+ - Include default anonymize template based on https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4636522/
+
 v0.7 (2020.04.21)
 --------------------
  - Remove explicit DICOM tag value typing, let pydicom handle it
