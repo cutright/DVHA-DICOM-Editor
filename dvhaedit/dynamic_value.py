@@ -74,29 +74,33 @@ class ValueGenerator:
 
         file_count = len(self.file_paths)
         self.set_enum_instances()
-        new_values = {}
 
-        self.value_generator_callback(0, file_count)
+        if '*' not in self.value:
+            new_values = {f: self.value for f in self.file_paths}
+        else:
+            new_values = {}
 
-        for f_counter, f in enumerate(self.file_paths):
-            ds = self.data_sets[f_counter]
-            ds.load_dcm()
-            addresses = self.data_sets[f_counter].find_tag(self.tag)
-            ds.clear_dcm()
-            new_values[f] = [
-                self.value.split("*") for _ in range(len(addresses))
-            ]
-            for i, call_str in enumerate(self.value.split("*")):
-                if i % 2 == 1:
-                    for index, address in enumerate(addresses):
-                        new_values[f][index][i] = str(
-                            self.get_value(call_str, f, index=index)
-                        )
-            new_values[f] = [
-                "".join(new_values) for new_values in new_values[f]
-            ]
+            self.value_generator_callback(0, file_count)
 
-            self.value_generator_callback(f_counter + 1, file_count)
+            for f_counter, f in enumerate(self.file_paths):
+                ds = self.data_sets[f_counter]
+                ds.load_dcm()
+                addresses = self.data_sets[f_counter].find_tag(self.tag)
+                ds.clear_dcm()
+                new_values[f] = [
+                    self.value.split("*") for _ in range(len(addresses))
+                ]
+                for i, call_str in enumerate(self.value.split("*")):
+                    if i % 2 == 1:
+                        for index, address in enumerate(addresses):
+                            new_values[f][index][i] = str(
+                                self.get_value(call_str, f, index=index)
+                            )
+                new_values[f] = [
+                    "".join(new_values) for new_values in new_values[f]
+                ]
+
+                self.value_generator_callback(f_counter + 1, file_count)
 
         if file_path is not None:
             return new_values[file_path]

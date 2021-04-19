@@ -190,7 +190,9 @@ class TagSearchDialog(wx.Dialog):
             id=self.list_ctrl.GetId(),
         )
         self.Bind(
-            wx.EVT_LIST_COL_CLICK, self.data_table.sort_table, self.list_ctrl
+            wx.EVT_LIST_COL_CLICK,
+            self.data_table.sort_table_by_evt,
+            self.list_ctrl,
         )
 
     def __do_layout(self):
