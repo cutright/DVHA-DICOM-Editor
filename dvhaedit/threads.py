@@ -62,11 +62,13 @@ class ParsingProgressFrame(ProgressFrame):
 class RefSyncProgressFrame(ProgressFrame):
     """Create a window showing Referenced tag sync progress, call SaveWorker"""
 
-    def __init__(self, history, data_sets, check_all_tags):
+    def __init__(self, history, data_sets, check_all_tags, local_only):
         ProgressFrame.__init__(
             self,
             history,
-            partial(update_referenced_tags, data_sets, check_all_tags),
+            partial(
+                update_referenced_tags, data_sets, check_all_tags, local_only
+            ),
             close_msg="ref_sync_complete",
             action_gui_phrase="Checking References for Tag:",
             title="Checking for Referenced Tags",

@@ -222,8 +222,8 @@ class DICOMEditor:
     def default_name(self):
         modality = getattr(self.dcm, "Modality", "UnknownModality")
         sop_uid = getattr(self.dcm, "SOPInstanceUID", "")
-        if sop_uid and sop_uid.count('.') > 1:
-            uid_split = sop_uid.split('.')
+        if sop_uid and sop_uid.count(".") > 1:
+            uid_split = sop_uid.split(".")
             sop_uid = f"{uid_split[-2]}.{uid_split[-1]}"
 
         return f"{modality}.{sop_uid}.dcm"
@@ -518,7 +518,9 @@ def apply_edits(values_dicts, all_row_data, rename_file, data_sets):
                         old_value, _ = ds.edit_tag(
                             new_value, tag=tag.tag, address=address
                         )
-                        history.append([keyword, old_value, new_value])
+                        history.append(
+                            [keyword, old_value, new_value, ds.file_path]
+                        )
 
             except Exception as e:
                 err_msg = (
@@ -555,16 +557,20 @@ def apply_edits(values_dicts, all_row_data, rename_file, data_sets):
     }
 
 
-def update_referenced_tags(data_sets, check_all_tags, history_row):
-    keyword, old_value, new_value = tuple(history_row)
+def update_referenced_tags(data_sets, check_all_tags, local_only, history_row):
+    keyword, old_value, new_value, file_path = tuple(history_row)
     if "Referenced%s" % keyword in list(keyword_dict):
         for ds in data_sets:
-            ds.load_dcm()
-            ds.sync_referenced_tag(
-                keyword, old_value, new_value, check_all_tags=check_all_tags
-            )
-            ds.save_to_file()
-            ds.clear_dcm()
+            if not local_only or dirname(file_path) == dirname(ds.file_path):
+                ds.load_dcm()
+                ds.sync_referenced_tag(
+                    keyword,
+                    old_value,
+                    new_value,
+                    check_all_tags=check_all_tags,
+                )
+                ds.save_to_file()
+                ds.clear_dcm()
 
 
 def value_to_list(value):

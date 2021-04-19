@@ -170,8 +170,10 @@ class MainFrame(wx.Frame):
 
         self.referenced_tag_choices = [
             "Only Edit Tags Defined in Table",
-            'Update "Referenced" Tags',
-            "Update All Tags with Matching UID",
+            'Update "Referenced" Tags (local files)',
+            'Update "Referenced" Tags (all files)',
+            "Update All Tags with Matching UID (local files)",
+            "Update All Tags with Matching UID (all files)",
         ]
         self.update_referenced_tags = wx.ComboBox(
             self,
@@ -243,8 +245,8 @@ class MainFrame(wx.Frame):
         )
         self.rename_files.SetValue(False)
 
-        self.button["in_browse"].SetLabel(u"Browse…")
-        self.button["out_browse"].SetLabel(u"Browse…")
+        self.button["in_browse"].SetLabel("Browse…")
+        self.button["out_browse"].SetLabel("Browse…")
         self.button["save_dicom"].SetLabel("Save DICOM")
         self.button["save_template"].SetLabel("Save")
         self.button["load_template"].SetLabel("Load")
@@ -350,7 +352,9 @@ class MainFrame(wx.Frame):
             id=self.list_ctrl.GetId(),
         )
 
-        self.Bind(wx.EVT_CHECKBOX, self.update_preview, id=self.show_preview.GetId())
+        self.Bind(
+            wx.EVT_CHECKBOX, self.update_preview, id=self.show_preview.GetId()
+        )
 
     def __do_subscribe(self):
         pub.subscribe(self.add_parsed_data, "add_parsed_data")
@@ -958,9 +962,15 @@ class MainFrame(wx.Frame):
         """Apply the tag edits to every file in self.ds, return any errors"""
         tag = self.tag
         value_str = self.value
-        if self.show_preview.GetValue() and value_str.count("*") and value_str.count("*") % 2 == 0:
+        if (
+            self.show_preview.GetValue()
+            and value_str.count("*")
+            and value_str.count("*") % 2 == 0
+        ):
             self.show_preview.SetValue(False)
-            value_gen = ValueGenerator(value_str, tag.tag, self.current_options)
+            value_gen = ValueGenerator(
+                value_str, tag.tag, self.current_options
+            )
             file = self.file_paths[self.selected_file]
             msg = "Calculating new tag value preview. Please wait..."
             with wx.BusyInfo(msg):
@@ -1202,7 +1212,11 @@ class MainFrame(wx.Frame):
             for row in range(self.data_table.row_count)
         ]
         wx.CallAfter(
-            ApplyEditsProgressFrame, self.ds, self.values_dicts, all_row_data, self.rename_files.GetValue()
+            ApplyEditsProgressFrame,
+            self.ds,
+            self.values_dicts,
+            all_row_data,
+            self.rename_files.GetValue(),
         )
 
     # -------------------------------------------------------------------------
@@ -1220,17 +1234,14 @@ class MainFrame(wx.Frame):
         # self.set_output_paths()
 
         # Check for referenced tags by sending edit history to each data set
-        if (
-            self.update_referenced_tags.GetSelection()
-            and self.a_referenced_tag_exists(self.history)
+        update_referenced_tags = self.update_referenced_tags.GetSelection()
+        if update_referenced_tags and self.a_referenced_tag_exists(
+            self.history
         ):
-            check_all_tags = (
-                True
-                if self.update_referenced_tags.GetSelection() == 2
-                else False
-            )
+            check_all_tags = update_referenced_tags in {3, 4}
+            local_only = update_referenced_tags in {1, 3}
             RefSyncProgressFrame(
-                self.history, self.ds.values(), check_all_tags
+                self.history, self.ds.values(), check_all_tags, local_only
             )
             # This will call on_save_complete when done
         else:
@@ -1246,8 +1257,10 @@ class MainFrame(wx.Frame):
         if self.save_history.GetValue():
             self.save_history_to_file()
 
-        msg = "Re-parse input directory? This is recommended if you wish to " \
-              "apply new edits."
+        msg = (
+            "Re-parse input directory? This is recommended if you wish to "
+            "apply new edits."
+        )
         caption = "Are you sure?"
         flags = wx.ICON_WARNING | wx.YES | wx.NO
         with wx.MessageDialog(self, msg, caption, flags) as dlg:
