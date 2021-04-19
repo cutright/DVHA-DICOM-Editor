@@ -1140,11 +1140,10 @@ class MainFrame(wx.Frame):
             self.ignored_file_paths.append(self.file_paths.pop(i))
             self.ds.pop(f)
         self.update_files_found()
-
+        self.update_combobox_files()
         self.update_selected_file()
         self.load_current_dcm()
 
-        self.update_combobox_files()
         self.update_init_value()
         self.update_modality()
 
