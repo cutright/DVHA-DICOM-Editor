@@ -482,23 +482,21 @@ class TagSearch:
 def apply_edits(values_dicts, all_row_data, rename_file, data_sets):
     """Apply the tag edits to every file in self.ds, return any errors"""
     error_log, history = [], []
-    for row in range(len(all_row_data)):
+    for i, (file_path, ds) in enumerate(data_sets.items()):
 
-        row_data = all_row_data[row]
-        tag = row_data["tag"]
-        value_str = row_data["value_str"]
-        keyword = row_data["keyword"]
-        values_dict = values_dicts[row]
+        label = f"Editing file %s of %s" % (i + 1, len(data_sets))
+        msg = {"label": label, "gauge": float(i) / len(data_sets)}
+        pub.sendMessage("progress_update", msg=msg)
+        ds.load_dcm()
 
-        for i, (file_path, ds) in enumerate(data_sets.items()):
-            label = "Editing %s for file %s of %s" % (
-                keyword,
-                i + 1,
-                len(data_sets),
-            )
-            msg = {"label": label, "gauge": float(i) / len(data_sets)}
-            pub.sendMessage("progress_update", msg=msg)
-            ds.load_dcm()
+        for row in range(len(all_row_data)):
+
+            row_data = all_row_data[row]
+            tag = row_data["tag"]
+            value_str = row_data["value_str"]
+            keyword = row_data["keyword"]
+            values_dict = values_dicts[row]
+
             try:
                 if (
                     tag.tag in ds.dcm.keys()
@@ -560,8 +558,8 @@ def apply_edits(values_dicts, all_row_data, rename_file, data_sets):
                     )
                 )
 
-            ds.save_to_file(save_with_default_name=rename_file)
-            ds.clear_dcm()
+        ds.save_to_file(save_with_default_name=rename_file)
+        ds.clear_dcm()
 
     return {
         "error_log": "\n".join(error_log),
