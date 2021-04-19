@@ -646,6 +646,7 @@ class MainFrame(wx.Frame):
             data = {columns[i]: [value] for i, value in enumerate(row)}
             self.data_table.set_data(data, columns)
         self.data_table.set_column_widths(auto=True)
+        self.data_table.sort_table_by_column(0)
 
         # Reset input widgets
         for key in ["tag_group", "tag_element", "value"]:

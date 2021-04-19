@@ -456,12 +456,13 @@ class DataTable:
     def has_data(self):
         return bool(self.row_count)
 
-    def sort_table(self, evt):
+    def sort_table_by_evt(self, evt):
+        self.sort_table_by_column(evt.Column)
+
+    def sort_table_by_column(self, column):
 
         if self.data:
-            key = self.columns[
-                evt.Column
-            ]  # get the column name from the column index (evt.Column)
+            key = self.columns[column]
             sort_indices = get_sorted_indices(
                 self.data[key]
             )  # handles str and float mixtures
