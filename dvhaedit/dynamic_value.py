@@ -73,11 +73,11 @@ class ValueGenerator:
         self.data_sets = [data_sets[f] for f in self.file_paths]
 
         file_count = len(self.file_paths)
-        self.set_enum_instances()
 
-        if '*' not in self.value:
+        if "*" not in self.value:
             new_values = {f: self.value for f in self.file_paths}
         else:
+            self.set_enum_instances()
             new_values = {}
 
             self.value_generator_callback(0, file_count)

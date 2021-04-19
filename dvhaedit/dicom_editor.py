@@ -42,7 +42,9 @@ class DICOMEditor:
 
     def load_dcm(self):
         try:
-            self.dcm = pydicom.read_file(self.file_path, force=self.force)
+            self.dcm = pydicom.read_file(
+                self.file_path, stop_before_pixels=True, force=self.force
+            )
         except Exception:
             self.dcm = False
 
