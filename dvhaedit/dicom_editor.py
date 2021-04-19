@@ -205,6 +205,13 @@ class DICOMEditor:
         :type save_with_default_name: bool
         """
         file_path = self.output_path if file_path is None else file_path
+        file_path = self.get_save_file_path(file_path, save_with_default_name)
+        self.dcm.save_as(file_path)
+        # Load the new file if another edit is applied
+        self.file_path = file_path
+
+    def get_save_file_path(self, file_path=None, save_with_default_name=False):
+        file_path = self.output_path if file_path is None else file_path
         if save_with_default_name:
             dir_name = dirname(file_path)
             default_name = self.default_name.replace(".dcm", "")
@@ -215,10 +222,7 @@ class DICOMEditor:
                     default_name = f"{default_name[:-1]}_{str(counter)}"
                     counter += 1
             file_path = join(dir_name, f"{default_name}.dcm")
-
-        self.dcm.save_as(file_path)
-        # Load the new file if another edit is applied
-        self.file_path = file_path
+        return file_path
 
     @property
     def default_name(self):
@@ -521,7 +525,14 @@ def apply_edits(values_dicts, all_row_data, rename_file, data_sets):
                             new_value, tag=tag.tag, address=address
                         )
                         history.append(
-                            [keyword, old_value, new_value, ds.file_path]
+                            [
+                                keyword,
+                                old_value,
+                                new_value,
+                                ds.get_save_file_path(
+                                    save_with_default_name=rename_file
+                                ),
+                            ]
                         )
 
             except Exception as e:
