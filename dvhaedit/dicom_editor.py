@@ -484,7 +484,7 @@ def apply_edits(values_dicts, all_row_data, rename_file, data_sets):
     error_log, history = [], []
     for i, (file_path, ds) in enumerate(data_sets.items()):
 
-        label = f"Editing file %s of %s" % (i + 1, len(data_sets))
+        label = "Editing and saving file %s of %s" % (i + 1, len(data_sets))
         msg = {"label": label, "gauge": float(i) / len(data_sets)}
         pub.sendMessage("progress_update", msg=msg)
         ds.load_dcm()
