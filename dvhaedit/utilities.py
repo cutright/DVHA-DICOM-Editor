@@ -32,14 +32,17 @@ def get_file_paths(start_path, search_sub_folders=False, extension=None):
     :rtype: list
     """
 
-    ignored_files = ['.ds_store']
+    ignored_files = [".ds_store"]
 
     if isdir(start_path):
         if search_sub_folders:
             file_paths = []
             for root, dirs, files in walk(start_path, topdown=False):
                 for name in files:
-                    if extension is None or splitext(name)[1].lower() == extension.lower():
+                    if (
+                        extension is None
+                        or splitext(name)[1].lower() == extension.lower()
+                    ):
                         if name.lower() not in ignored_files:
                             file_paths.append(join(root, name))
             return file_paths
@@ -47,7 +50,10 @@ def get_file_paths(start_path, search_sub_folders=False, extension=None):
         file_paths = []
         for f in listdir(start_path):
             if isfile(join(start_path, f)):
-                if extension is None or splitext(f)[1].lower() == extension.lower():
+                if (
+                    extension is None
+                    or splitext(f)[1].lower() == extension.lower()
+                ):
                     if f.lower() not in ignored_files:
                         file_paths.append(join(start_path, f))
         return file_paths
@@ -66,7 +72,9 @@ def get_selected_listctrl_items(list_control):
 
     index_current = -1
     while True:
-        index_next = list_control.GetNextItem(index_current, wx.LIST_NEXT_ALL, wx.LIST_STATE_SELECTED)
+        index_next = list_control.GetNextItem(
+            index_current, wx.LIST_NEXT_ALL, wx.LIST_STATE_SELECTED
+        )
         if index_next == -1:
             return selection
 
@@ -79,28 +87,34 @@ def get_sorted_indices(some_list):
         return [i[0] for i in sorted(enumerate(some_list), key=lambda x: x[1])]
     except TypeError:  # can't sort if a mix of str and float
         try:
-            temp_data = [[value, -float('inf')][value == 'None'] for value in some_list]
-            return [i[0] for i in sorted(enumerate(temp_data), key=lambda x: x[1])]
+            temp_data = [
+                [value, -float("inf")][value == "None"] for value in some_list
+            ]
+            return [
+                i[0] for i in sorted(enumerate(temp_data), key=lambda x: x[1])
+            ]
         except TypeError:
             temp_data = [str(value) for value in some_list]
-            return [i[0] for i in sorted(enumerate(temp_data), key=lambda x: x[1])]
+            return [
+                i[0] for i in sorted(enumerate(temp_data), key=lambda x: x[1])
+            ]
 
 
 def is_windows():
-    return wx.Platform == '__WXMSW__'
+    return wx.Platform == "__WXMSW__"
 
 
 def set_msw_background_color(parent):
     if is_windows():
-        parent.SetBackgroundColour('lightgrey')
+        parent.SetBackgroundColour("lightgrey")
 
 
 def is_linux():
-    return wx.Platform == '__WXGTK__'
+    return wx.Platform == "__WXGTK__"
 
 
 def is_mac():
-    return wx.Platform == '__WXMAC__'
+    return wx.Platform == "__WXMAC__"
 
 
 def get_window_size(width, height):
@@ -121,7 +135,7 @@ def save_csv_to_file(csv_data, abs_file_path):
     """
     Save a python object acceptable for pickle to the provided file path
     """
-    with open(abs_file_path, 'w') as outfile:
+    with open(abs_file_path, "w") as outfile:
         outfile.write(csv_data)
 
 
@@ -131,12 +145,12 @@ def load_csv_from_file(abs_file_path):
     """
     columns, data = None, None
     if isfile(abs_file_path):
-        with open(abs_file_path, 'r') as infile:
-            columns = [c.strip() for c in infile.readline().split(',')]
+        with open(abs_file_path, "r") as infile:
+            columns = [c.strip() for c in infile.readline().split(",")]
             data = {c: [] for c in columns}
             for row in infile:
-                for i, value in enumerate(row.split(',')):
-                    data[columns[i]].append(value.strip().replace(';', ','))
+                for i, value in enumerate(row.split(",")):
+                    data[columns[i]].append(value.strip().replace(";", ","))
 
     return columns, data
 
@@ -145,7 +159,7 @@ def save_object_to_file(obj, abs_file_path):
     """
     Save a python object acceptable for pickle to the provided file path
     """
-    with open(abs_file_path, 'wb') as outfile:
+    with open(abs_file_path, "wb") as outfile:
         pickle.dump(obj, outfile)
 
 
@@ -154,7 +168,7 @@ def load_object_from_file(abs_file_path):
     Load a pickled object from the provided absolute file path
     """
     if isfile(abs_file_path):
-        with open(abs_file_path, 'rb') as infile:
+        with open(abs_file_path, "rb") as infile:
             obj = pickle.load(infile)
         return obj
 
@@ -168,50 +182,54 @@ def remove_non_alphanumeric(some_string):
     :type some_string: str
     :return: the provided string less any non-alphanumeric characters
     """
-    pattern = re.compile(r'[\W_]+')
-    return pattern.sub('', some_string).replace('_', '')
+    pattern = re.compile(r"[\W_]+")
+    return pattern.sub("", some_string).replace("_", "")
 
 
 def remove_characters_between(some_string, lt_char, rt_char):
-    regex = lt_char + '[^>]+' + rt_char
-    return re.sub(regex, '', some_string)
+    regex = lt_char + "[^>]+" + rt_char
+    return re.sub(regex, "", some_string)
 
 
-def update_dynamic_value_help_txt(first_line_value='Dynamic Value Setting'):
+def update_dynamic_value_help_txt(first_line_value="Dynamic Value Setting"):
     """
     Convert README.md file into plain text.
     Designed to extract text specifically dynamic_value.HELP_TEXT
-    :param first_line_value: optionally ignore every line before this value is found
+    :param first_line_value: optionally ignore every line before this value
     :type first_line_value: str
     """
-    divider = '------------------------------------------------------------------------------'
+    divider = "-" * 78
     new_lines = [divider]
-    with open('README.md', 'r') as markdown:
+    with open("README.md", "r") as markdown:
         first_line_found = False
         for line in markdown:
             if line.startswith(first_line_value):
                 first_line_found = True
             if first_line_found:
                 append_divider = False
-                new_line = remove_characters_between(line, '<', '>')
-                new_line = new_line.replace('\n', '')  # don't want to strip leading spaces
-                if new_line.strip().startswith('* `'):
-                    new_line = new_line.replace('* ', '')
+                new_line = remove_characters_between(line, "<", ">")
+                new_line = new_line.replace(
+                    "\n", ""
+                )  # don't want to strip leading spaces
+                if new_line.strip().startswith("* `"):
+                    new_line = new_line.replace("* ", "")
                 else:
-                    if new_line.startswith('### '):
+                    if new_line.startswith("### "):
                         new_lines.append(divider)
                         new_line = new_line[4:].upper()
                         append_divider = True
-                    new_line = new_line.replace('* ', '').replace('*', '')
+                    new_line = new_line.replace("* ", "").replace("*", "")
 
-                new_line = new_line.replace(' ' * 4, ' ' * 8)  # double the indents
-                new_line = new_line.replace('`', '')
+                new_line = new_line.replace(
+                    " " * 4, " " * 8
+                )  # double the indents
+                new_line = new_line.replace("`", "")
                 new_lines.append(new_line)
                 if append_divider:
                     new_lines.append(divider)
 
-    with open(join(SCRIPT_DIR, 'dynamic_value_help.txt'), 'w') as doc:
-        doc.write('\n'.join(new_lines))
+    with open(join(SCRIPT_DIR, "dynamic_value_help.txt"), "w") as doc:
+        doc.write("\n".join(new_lines))
 
 
 def set_frame_icon(frame):
@@ -224,7 +242,7 @@ def get_uid_prefixes():
     for prefix, data in UID_dictionary.items():
         if data[0]:
             key = "%s - %s" % (data[0], data[1])
-            if data[3].lower() == 'retired':
-                key = key + ' (Retired)'
+            if data[3].lower() == "retired":
+                key = key + " (Retired)"
             prefix_dict[key] = prefix
     return prefix_dict

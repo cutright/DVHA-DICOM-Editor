@@ -20,6 +20,9 @@ Simple DICOM tag editor built with [wxPython](https://github.com/wxWidgets/Phoen
 <a href="https://lgtm.com/projects/g/cutright/DVHA-DICOM-Editor/context:python">
         <img src="https://img.shields.io/lgtm/grade/python/g/cutright/DVHA-DICOM-Editor.svg?logo=lgtm&label=code%20quality"
              alt="LGTM Python Code Quality" /></a>
+<a href="https://github.com/psf/black">
+        <img src="https://img.shields.io/badge/code%20style-black-000000.svg"
+             alt="Code style: black" /></a>
 
 Source-Code Installation
 ---------

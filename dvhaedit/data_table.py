@@ -17,20 +17,28 @@ from dvhaedit.utilities import get_sorted_indices, get_selected_listctrl_items
 
 class DataTable:
     """
-    This is a helper class containing the UI elements of the list_ctrl.  Adding / Changing data with this class
-    will automatically update UI elements.
+    This is a helper class containing the UI elements of the list_ctrl.
+    Adding / Changing data with this class will automatically update UI
+    elements.
     """
-    def __init__(self, list_ctrl, data=None, columns=None, widths=None, formats=None):
+
+    def __init__(
+        self, list_ctrl, data=None, columns=None, widths=None, formats=None
+    ):
         """
-        :param list_ctrl: the list_ctrl in the GUI to be updated with data in this class
+        :param list_ctrl: the list_ctrl in the GUI to be updated with data in
+        this class
         :type list_ctrl: ListCtrl
-        :param data: data should be formatted in a dictionary with keys being the column names and values being lists
+        :param data: data should be formatted in a dictionary with keys being
+        the column names and values being lists
         :type data: dict
-        :param columns: the keys of the data object to be visible in the list_ctrl
+        :param columns: the keys of the data object to be visible in the
+        list_ctrl
         :type columns: list
         :param widths: optionally specify the widths of the columns
         :type widths: list
-        :param formats: optionally specify wx Format values (e.g., wx.LIST_FORMAT_LEFT)
+        :param formats: optionally specify wx Format values (e.g.,
+        wx.LIST_FORMAT_LEFT)
         :type formats: list
         """
 
@@ -59,10 +67,14 @@ class DataTable:
         :return: a copy of the data, columns, widths, and formats
         :rtype: dict
         """
-        return deepcopy({'data': self.data,
-                         'columns': self.columns,
-                         'widths': self.widths,
-                         'formats': self.formats})
+        return deepcopy(
+            {
+                "data": self.data,
+                "columns": self.columns,
+                "widths": self.widths,
+                "formats": self.formats,
+            }
+        )
 
     def load_save_data(self, save_data, ignore_layout=False):
         """
@@ -72,18 +84,25 @@ class DataTable:
         :param ignore_layout: If true, do not update layout
         :type ignore_layout: bool
         """
-        self.widths = deepcopy(save_data['widths'])
+        self.widths = deepcopy(save_data["widths"])
         self.set_column_widths()
-        self.set_data(save_data['data'], save_data['columns'], ignore_layout=ignore_layout)
+        self.set_data(
+            save_data["data"],
+            save_data["columns"],
+            ignore_layout=ignore_layout,
+        )
 
     def set_data(self, data, columns, formats=None, ignore_layout=False):
         """
         Use this function to update data and properly update the layout
-        :param data: data should be formatted in a dictionary with keys being the column names and values being lists
+        :param data: data should be formatted in a dictionary with keys being
+        the column names and values being lists
         :type data: dict
-        :param columns: the keys of the data object to be visible in the list_ctrl
+        :param columns: the keys of the data object to be visible in the
+        list_ctrl
         :type columns: list
-        :param formats: optionally specify wx Format values (e.g., wx.LIST_FORMAT_LEFT)
+        :param formats: optionally specify wx Format values (e.g.,
+        wx.LIST_FORMAT_LEFT)
         :type formats: list
         :param ignore_layout: If true, do not update layout
         :type ignore_layout: bool
@@ -131,13 +150,17 @@ class DataTable:
 
     def data_to_list_of_rows(self):
         """
-        Convert self.data which is formatted as a dict by columns into a list of rows as needed for list_ctrl
-        self.data is formatted this way out of convience for plotting with bokeh
+        Convert self.data which is formatted as a dict by columns into a list
+        of rows as needed for list_ctrl self.data is formatted this way out
+        of convience for plotting with bokeh
         :return: data in the format of list of rows
         :rtype: list
         """
         if self.data and self.keys:
-            return [[self.data[col][row] for col in self.columns] for row in range(self.row_count)]
+            return [
+                [self.data[col][row] for col in self.columns]
+                for row in range(self.row_count)
+            ]
         else:
             return []
 
@@ -146,12 +169,13 @@ class DataTable:
         Add an empty column to the data and layout
         :param column: name of the column
         :type column: str
-        :param format: optionally specify the wx format value (wx.LIST_FORMAT_LEFT by default)
+        :param format: optionally specify the wx format value
+        (wx.LIST_FORMAT_LEFT by default)
         """
         if self.layout:
             self.layout.AppendColumn(column, format=format)
         self.columns.append(column)
-        self.data[column] = [''] * self.row_count
+        self.data[column] = [""] * self.row_count
 
     def delete_column(self, column):
         """
@@ -191,7 +215,11 @@ class DataTable:
         if self.layout:
             index = self.layout.InsertItem(50000, str(row[0]))
             for i in range(len(row))[1:]:
-                if isinstance(row[i], float) or isinstance(row[i], int) and str(row[i]) not in {'True', 'False'}:
+                if (
+                    isinstance(row[i], float)
+                    or isinstance(row[i], int)
+                    and str(row[i]) not in {"True", "False"}
+                ):
                     value = "%f" % row[i]
                 else:
                     value = str(row[i])
@@ -212,7 +240,8 @@ class DataTable:
 
     def edit_row_to_data(self, row, index):
         """
-        Replace a row of data with a provided row and index, edits self.data only
+        Replace a row of data with a provided row and index, edits
+        self.data only
         :param row: data ordered by self.columns
         :type row: list
         :param index: the row index
@@ -237,7 +266,7 @@ class DataTable:
                 self.layout.DeleteItem(index)
 
     def get_row_index_from_tag(self, tag_to_check):
-        for i, tag in enumerate(self.data['Tag']):
+        for i, tag in enumerate(self.data["Tag"]):
             if tag == tag_to_check:
                 return i
 
@@ -246,7 +275,8 @@ class DataTable:
         Clear all data from self.data and the layout view
         :param layout_only: If True, do not remove the row from self.data
         :type layout_only: bool
-        :param force_delete_data: If true, force deletion even if layout is not set
+        :param force_delete_data: If true, force deletion even if layout is
+        not set
         """
         if self.layout:
             self.layout.DeleteAllItems()
@@ -318,8 +348,10 @@ class DataTable:
 
     def get_csv(self, extra_column_data=None):
         """
-        This function will return a csv string of the data currently in this object
-        :param extra_column_data: if there is additional data you'd like in the csv, pass the column data as a
+        This function will return a csv string of the data currently in this
+        object
+        :param extra_column_data: if there is additional data you'd like in
+        the csv, pass the column data as a
         dictionary with:
             keys corresponding to column index
             values are dicts like {'title': str, 'data': list_of_data}
@@ -333,9 +365,9 @@ class DataTable:
             self.insert_columns_into_data_for_csv(data, extra_column_data)
         csv_data = []
         for row in data:
-            csv_data.append(','.join(str(i) for i in row))
+            csv_data.append(",".join(str(i) for i in row))
 
-        return '\n'.join(csv_data)
+        return "\n".join(csv_data)
 
     @property
     def data_for_csv(self):
@@ -352,38 +384,46 @@ class DataTable:
                 if isinstance(raw_value, float):
                     value = "%0.2f" % raw_value
                 else:
-                    value = str(raw_value).replace(',', ';')
+                    value = str(raw_value).replace(",", ";")
                 row.append(value)
             data.append(row)
         return data
 
     @staticmethod
-    def insert_column_into_data_for_csv(data_for_csv, columns_dict_value, index):
+    def insert_column_into_data_for_csv(
+        data_for_csv, columns_dict_value, index
+    ):
         """
         Insert a column of data into the data returned from data_for_csv
         :param data_for_csv: rows of csv data
         :type data_for_csv: list
-        :param columns_dict_value: title and data information. see extra_column_information in get_csv
+        :param columns_dict_value: title and data information. see
+        extra_column_information in get_csv
         :type columns_dict_value: dict
         :param index: index of column to be inserted
         :type index: int
         """
-        columns_dict_value['data'].insert(0, columns_dict_value['title'])
+        columns_dict_value["data"].insert(0, columns_dict_value["title"])
         for i, row in enumerate(data_for_csv):
-            row.insert(index, str(columns_dict_value['data'][i]).replace(',', ';'))
+            row.insert(
+                index, str(columns_dict_value["data"][i]).replace(",", ";")
+            )
 
     def insert_columns_into_data_for_csv(self, data_for_csv, columns_dict):
         """
         Insert columns_dict data into the provided data_for_csv
         :param data_for_csv: return from data_for_csv function
         :type data_for_csv: list
-        :param columns_dict: extra columns data formatted as specified in get_csv
+        :param columns_dict: extra columns data formatted as specified in
+        get_csv
         :type columns_dict: dict
         """
         indices = list(columns_dict)
         indices.sort()
         for index in indices:
-            self.insert_column_into_data_for_csv(data_for_csv, columns_dict[index], index)
+            self.insert_column_into_data_for_csv(
+                data_for_csv, columns_dict[index], index
+            )
 
     @property
     def selected_row_data(self):
@@ -391,11 +431,17 @@ class DataTable:
         :return: row data of the currently selected row in the GUI
         :rtype: list
         """
-        return [self.get_row(index) for index in get_selected_listctrl_items(self.layout)]
+        return [
+            self.get_row(index)
+            for index in get_selected_listctrl_items(self.layout)
+        ]
 
     @property
     def selected_row_data_with_index(self):
-        return [[index, self.get_row(index)] for index in get_selected_listctrl_items(self.layout)]
+        return [
+            [index, self.get_row(index)]
+            for index in get_selected_listctrl_items(self.layout)
+        ]
 
     def apply_selection_to_all(self, state):
         """
@@ -410,11 +456,16 @@ class DataTable:
     def has_data(self):
         return bool(self.row_count)
 
-    def sort_table(self, evt):
+    def sort_table_by_evt(self, evt):
+        self.sort_table_by_column(evt.Column)
+
+    def sort_table_by_column(self, column):
 
         if self.data:
-            key = self.columns[evt.Column]  # get the column name from the column index (evt.Column)
-            sort_indices = get_sorted_indices(self.data[key])  # handles str and float mixtures
+            key = self.columns[column]
+            sort_indices = get_sorted_indices(
+                self.data[key]
+            )  # handles str and float mixtures
 
             if self.sort_indices is None:
                 self.sort_indices = list(range(len(self.data[key])))
@@ -423,16 +474,24 @@ class DataTable:
             if sort_indices == list(range(len(sort_indices))):
                 sort_indices = sort_indices[::-1]
 
-            self.sort_indices = [self.sort_indices[i] for i in sort_indices]  # keep original order
+            self.sort_indices = [
+                self.sort_indices[i] for i in sort_indices
+            ]  # keep original order
 
             # reorder data and reinitialize table view
-            self.data = {column: [self.data[column][i] for i in sort_indices] for column in self.columns}
+            self.data = {
+                column: [self.data[column][i] for i in sort_indices]
+                for column in self.columns
+            }
             self.set_data(self.data, self.columns, self.formats)
 
     def get_data_in_original_order(self):
         if self.sort_indices is None:
             return self.data
-        return {column: [self.data[column][i] for i in self.sort_indices] for column in self.columns}
+        return {
+            column: [self.data[column][i] for i in self.sort_indices]
+            for column in self.columns
+        }
 
     def get_unique_values(self, column):
         return sorted(set(self.data[column]))

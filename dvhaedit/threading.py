@@ -19,12 +19,28 @@ from time import sleep
 
 class ProgressFrame(wx.Dialog):
     """Create a window to display progress and begin provided worker"""
-    def __init__(self, obj_list, action, close_msg, action_msg=None, action_gui_phrase='Processing', title='Progress',
-                 kwargs=False):
+
+    def __init__(
+        self,
+        obj_list,
+        action,
+        close_msg,
+        action_msg=None,
+        action_gui_phrase="Processing",
+        title="Progress",
+        kwargs=False,
+    ):
         wx.Dialog.__init__(self, None)
 
         self.close_msg = close_msg
-        self.worker_args = [obj_list, action, action_msg, action_gui_phrase, title, kwargs]
+        self.worker_args = [
+            obj_list,
+            action,
+            action_msg,
+            action_gui_phrase,
+            title,
+            kwargs,
+        ]
         self.action_gui_phrase = action_gui_phrase
 
         self.gauge = wx.Gauge(self, wx.ID_ANY, 100)
@@ -72,12 +88,13 @@ class ProgressFrame(wx.Dialog):
     def update(self, msg):
         """
         Update the progress message and gauge
-        :param msg: a dictionary with keys of 'label' and 'gauge' text and progress fraction, respectively
+        :param msg: a dictionary with keys of 'label' and 'gauge' text and
+        progress fraction, respectively
         :type msg: dict
         """
-        label = msg['label']
+        label = msg["label"]
         wx.CallAfter(self.label.SetLabelText, label)
-        wx.CallAfter(self.gauge.SetValue, int(100 * msg['gauge']))
+        wx.CallAfter(self.gauge.SetValue, int(100 * msg["gauge"]))
 
     def close(self):
         """Destroy layout in GUI and send message close message for parent"""
@@ -88,7 +105,10 @@ class ProgressFrame(wx.Dialog):
 
 class ProgressFrameWorker(Thread):
     """Create a thread, perform action on each item in obj_list"""
-    def __init__(self, obj_list, action, action_msg, action_gui_phrase, title, kwargs):
+
+    def __init__(
+        self, obj_list, action, action_msg, action_gui_phrase, title, kwargs
+    ):
         Thread.__init__(self)
 
         pub.sendMessage("progress_set_title", msg=title)
@@ -109,13 +129,16 @@ class ProgressFrameWorker(Thread):
         worker.start()
         queue.join()
         sleep(0.3)  # Allow time for user to see final progress in GUI
-        pub.sendMessage('progress_close')
+        pub.sendMessage("progress_close")
 
     def get_queue(self):
         queue = Queue()
         for i, obj in enumerate(self.obj_list):
-            msg = {'label': '%s %s of %s' % (self.action_gui_phrase, i + 1, self.obj_count),
-                   'gauge': float(i) / self.obj_count}
+            msg = {
+                "label": "%s %s of %s"
+                % (self.action_gui_phrase, i + 1, self.obj_count),
+                "gauge": float(i) / self.obj_count,
+            }
             queue.put((obj, msg))
         return queue
 
@@ -125,8 +148,7 @@ class ProgressFrameWorker(Thread):
             self.do_action(*parameters)
             queue.task_done()
 
-        msg = {'label': 'Process Complete',
-               'gauge': 1.}
+        msg = {"label": "Process Complete", "gauge": 1.0}
         wx.CallAfter(pub.sendMessage, "progress_update", msg=msg)
 
     def do_action(self, obj, msg):
@@ -137,5 +159,5 @@ class ProgressFrameWorker(Thread):
         else:
             result = self.action(obj)
         if self.action_msg is not None:
-            msg = {'obj': obj, 'data': result}
+            msg = {"obj": obj, "data": result}
             wx.CallAfter(pub.sendMessage, self.action_msg, msg=msg)
